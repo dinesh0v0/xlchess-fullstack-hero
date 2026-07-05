@@ -1,0 +1,17 @@
+{
+  "name": "xlchess-fullstack-hero",
+  "version": "1.0.0",
+  "private": true,
+  "description": "A production-ready, full-stack recreation of the xlchess.com hero section. React + TypeScript + Tailwind CSS + Framer Motion frontend, Django REST Framework backend.",
+  "scripts": {
+    "dev:frontend": "cd frontend && npm run dev",
+    "dev:backend": "cd backend && python manage.py runserver",
+    "build:frontend": "cd frontend && npm run build",
+    "install:frontend": "cd frontend && npm install",
+    "install:backend": "cd backend && pip install -r requirements.txt",
+    "setup": "npm run install:frontend && npm run install:backend"
+  },
+  "keywords": ["chess", "react", "django", "fullstack", "xlchess"],
+  "author": "dinesh0v0",
+  "license": "MIT"
+}

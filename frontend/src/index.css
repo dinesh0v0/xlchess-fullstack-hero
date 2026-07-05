@@ -1,0 +1,169 @@
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&display=swap');
+@import "tailwindcss";
+
+/* ──────────────────────────────────────────────────
+   XLChess Design System — Custom Theme
+   Derived from pixel-perfect analysis of xlchess.com
+   ────────────────────────────────────────────────── */
+
+@theme {
+  /* Brand Colors */
+  --color-brand-navy: #050B1D;
+  --color-brand-surface: #0B1628;
+  --color-brand-surface-light: #111D35;
+  --color-brand-border: #1A2744;
+  --color-brand-accent: #6e63f6;
+  --color-brand-accent-light: #8B7FFD;
+  --color-brand-accent-dark: #5B56D6;
+  --color-brand-cta: #5B6EF5;
+  --color-brand-cta-hover: #7080FF;
+
+  /* Text Colors */
+  --color-text-primary: #FFFFFF;
+  --color-text-secondary: #8899B4;
+  --color-text-muted: #5A6A85;
+  --color-text-accent: #6e63f6;
+
+  /* Chessboard Colors */
+  --color-board-light: #E8EDC8;
+  --color-board-dark: #779556;
+  --color-board-highlight: #F5F682;
+  --color-board-border: #1A2744;
+
+  /* Glow Effects */
+  --color-glow-blue: rgba(91, 110, 245, 0.3);
+  --color-glow-purple: rgba(110, 99, 246, 0.2);
+
+  /* Font Family */
+  --font-sans: 'Inter', system-ui, -apple-system, sans-serif;
+
+  /* Custom Shadows */
+  --shadow-board: 0 25px 60px rgba(0, 0, 0, 0.5), 0 0 40px rgba(91, 110, 245, 0.15);
+  --shadow-cta: 0 4px 15px rgba(91, 110, 245, 0.4);
+  --shadow-cta-hover: 0 6px 25px rgba(91, 110, 245, 0.6);
+  --shadow-glow: 0 0 60px rgba(110, 99, 246, 0.15), 0 0 120px rgba(91, 110, 245, 0.08);
+}
+
+/* ──────────────────────────────────────────────────
+   Global Reset & Base Styles
+   ────────────────────────────────────────────────── */
+
+@layer base {
+  *,
+  *::before,
+  *::after {
+    box-sizing: border-box;
+    margin: 0;
+    padding: 0;
+  }
+
+  html {
+    scroll-behavior: smooth;
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+  }
+
+  body {
+    font-family: var(--font-sans);
+    background-color: var(--color-brand-navy);
+    color: var(--color-text-primary);
+    min-height: 100vh;
+    overflow-x: hidden;
+    line-height: 1.6;
+  }
+
+  /* Focus ring for keyboard accessibility */
+  :focus-visible {
+    outline: 2px solid var(--color-brand-accent);
+    outline-offset: 2px;
+    border-radius: 4px;
+  }
+
+  /* Remove outline for mouse users */
+  :focus:not(:focus-visible) {
+    outline: none;
+  }
+}
+
+/* ──────────────────────────────────────────────────
+   Custom Animations
+   ────────────────────────────────────────────────── */
+
+@layer utilities {
+  /* CTA Button shine sweep */
+  .animate-shine {
+    position: relative;
+    overflow: hidden;
+  }
+
+  .animate-shine::after {
+    content: '';
+    position: absolute;
+    top: -50%;
+    left: -60%;
+    width: 40%;
+    height: 200%;
+    background: linear-gradient(
+      90deg,
+      transparent,
+      rgba(255, 255, 255, 0.15),
+      transparent
+    );
+    transform: skewX(-20deg);
+    animation: shine 4s ease-in-out infinite;
+  }
+
+  /* Floating chess piece animation */
+  .animate-float {
+    animation: float 6s ease-in-out infinite;
+  }
+
+  .animate-float-delayed {
+    animation: float 7s ease-in-out 1s infinite;
+  }
+
+  .animate-float-slow {
+    animation: float 8s ease-in-out 2s infinite;
+  }
+
+  /* Subtle pulse for decorative elements */
+  .animate-glow-pulse {
+    animation: glowPulse 3s ease-in-out infinite;
+  }
+}
+
+@keyframes shine {
+  0%, 100% {
+    left: -60%;
+  }
+  50% {
+    left: 120%;
+  }
+}
+
+@keyframes float {
+  0%, 100% {
+    transform: translateY(0px) rotate(0deg);
+  }
+  33% {
+    transform: translateY(-12px) rotate(1.5deg);
+  }
+  66% {
+    transform: translateY(6px) rotate(-1deg);
+  }
+}
+
+@keyframes glowPulse {
+  0%, 100% {
+    opacity: 0.3;
+  }
+  50% {
+    opacity: 0.6;
+  }
+}
+
+/* ──────────────────────────────────────────────────
+   Typography Imports
+   ────────────────────────────────────────────────── */
+
+
