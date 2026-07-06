@@ -118,6 +118,29 @@ const HeroCopy = memo(function HeroCopy() {
       >
         <AuthButtonGroup />
       </motion.div>
+
+      {/* Scroll indicator */}
+      <motion.div
+        className="flex items-center gap-2 mt-2"
+        custom={0.8}
+        initial="hidden"
+        animate="visible"
+        variants={fadeUp}
+      >
+        <div className="flex gap-1">
+          {[0, 1, 2].map(i => (
+            <motion.div
+              key={i}
+              className="w-1 h-1 rounded-full bg-text-muted"
+              animate={{ opacity: [0.3, 1, 0.3] }}
+              transition={{ duration: 1.5, delay: i * 0.2, repeat: Infinity, ease: 'easeInOut' }}
+            />
+          ))}
+        </div>
+        <span className="text-[0.65rem] text-text-muted font-medium tracking-wider uppercase">
+          Scroll to explore
+        </span>
+      </motion.div>
     </div>
   );
 });
