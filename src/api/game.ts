@@ -40,7 +40,7 @@ export async function createGame(timeControl: number = 600): Promise<GameState> 
 /**
  * Placeholder for WebSocket move submission.
  * In production, this would open a WebSocket channel to:
- * ws://api.xlchess.com/ws/game/<game_id>/
+ * ws://api.dachess.com/ws/game/<game_id>/
  *
  * For the hero section demo, this demonstrates the intended architecture.
  */

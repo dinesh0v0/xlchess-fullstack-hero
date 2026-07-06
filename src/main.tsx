@@ -1,5 +1,5 @@
 /**
- * Vite entry point for the XLChess frontend.
+ * Vite entry point for the DAChess frontend.
  * React 18+ createRoot with strict mode.
  */
 

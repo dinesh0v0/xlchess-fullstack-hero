@@ -2,7 +2,7 @@
  * ChessBoard — Reusable chessboard renderer.
  *
  * Renders an 8×8 chess grid with:
- * - Alternating light/dark squares (matching xlchess.com colors)
+ * - Alternating light/dark squares (matching dachess.com colors)
  * - Coordinate labels (a–h files, 1–8 ranks)
  * - Unicode chess piece rendering
  * - Square highlighting for last move

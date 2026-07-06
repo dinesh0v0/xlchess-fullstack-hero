@@ -2,7 +2,7 @@
  * FloatingPieces — Decorative background chess piece silhouettes.
  *
  * Creates the subtle, translucent floating chess pieces visible
- * in the xlchess.com hero background. Uses CSS animations for
+ * in the dachess.com hero background. Uses CSS animations for
  * gentle floating motion without triggering React re-renders.
  */
 

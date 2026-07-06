@@ -1,6 +1,6 @@
 /**
  * ContactSection — "Contact Us" form section.
- * Fourth section matching xlchess.com.
+ * Fourth section matching dachess.com.
  */
 
 import { memo, useState } from 'react';

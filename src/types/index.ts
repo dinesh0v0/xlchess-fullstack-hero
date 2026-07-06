@@ -1,5 +1,5 @@
 /**
- * Core TypeScript interfaces for the XLChess application.
+ * Core TypeScript interfaces for the DAChess application.
  * Provides strict type safety across the frontend.
  */
 
