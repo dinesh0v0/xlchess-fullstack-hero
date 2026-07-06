@@ -1,5 +1,5 @@
 /**
- * Root application — single-page layout matching xlchess.com.
+ * Root application — single-page layout matching dachess.com.
  *
  * Sections (in order, scrollable):
  *  1. Hero          — Brand + headline + Evergreen Game chessboard

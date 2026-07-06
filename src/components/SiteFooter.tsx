@@ -1,6 +1,6 @@
 /**
- * SiteFooter — Footer matching xlchess.com.
- * XLCHESS knight logo, copyright, Play | Puzzles links.
+ * SiteFooter — Footer matching dachess.com.
+ * DACHESS knight logo, copyright, Play | Puzzles links.
  */
 
 import { memo } from 'react';
@@ -17,14 +17,14 @@ const SiteFooter = memo(function SiteFooter() {
         <div className="flex flex-col items-center sm:items-start gap-1">
           <div className="flex items-center gap-2">
             <span className="text-brand-accent text-2xl">♞</span>
-            <span className="text-white font-black tracking-[0.15em] text-lg uppercase">XLCHESS</span>
+            <span className="text-white font-black tracking-[0.15em] text-lg uppercase">DACHESS</span>
           </div>
           <span className="text-[0.6rem] text-text-muted tracking-[0.2em] uppercase">— Excel at Chess —</span>
         </div>
 
         {/* Copyright */}
         <p className="text-text-muted text-sm order-last sm:order-none">
-          © 2026 XLChess.
+          © 2026 DAChess.
         </p>
 
         {/* Nav links */}

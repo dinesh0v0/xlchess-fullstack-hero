@@ -156,7 +156,7 @@ const SubscribersSection = memo(function SubscribersSection() {
             >
               <img
                 src="/final-banner.png"
-                alt="XLChess creator dashboard — YouTube analytics and chess content platform"
+                alt="DAChess creator dashboard — YouTube analytics and chess content platform"
                 className="w-full h-auto block"
                 style={{ maxWidth: '600px', minWidth: '280px' }}
                 loading="lazy"

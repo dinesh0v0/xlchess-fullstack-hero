@@ -1,12 +1,13 @@
 /**
  * EnginePlayground — Full interactive chess game with AI opponent.
  * Uses chess.js for complete legal move generation, check/mate detection.
- * UI matches xlchess.com screenshots (137-143):
+ * UI matches dachess.com design:
  *   - Animated board with layoutId piece movement
  *   - Eval bar + algebraic move log
  *   - Undo / Hint / Reset / More (dropdown: Chess960, Edit Position)
  *   - Difficulty 1–5 selector
- *   - Edit Position modal
+ *   - Inline Edit Position mode with piece palette, castling rights, FEN input
+ *   - Chess960 (Fischer Random) starting position generator
  *   - Turn indicator + game-over banner
  */
 
@@ -71,7 +72,7 @@ function getAIMove(game: Chess, diff: number): string | null {
 
   // Mild center preference for higher difficulty
   if (diff >= 4) {
-    const center = moves.filter(m => ['e4','e5','d4','d5','c4','c5','f4','f5'].includes(m.to));
+    const center = moves.filter(m => ['e4', 'e5', 'd4', 'd5', 'c4', 'c5', 'f4', 'f5'].includes(m.to));
     if (center.length && Math.random() > 0.5) {
       return center[Math.floor(Math.random() * center.length)].san;
     }
@@ -114,119 +115,40 @@ function applyMoveIds(
   if (mv.flags.includes('e')) ids.delete(`${mv.to[0]}${mv.from[1]}`);
 }
 
-/* ─── Edit Position Modal ────────────────────────── */
+/* ─── Chess960 Generator ─────────────────────────── */
 
-const EDIT_WHITE_PIECES = ['♔', '♕', '♖', '♗', '♘', '♙'];
-const EDIT_BLACK_PIECES = ['♚', '♛', '♜', '♝', '♞', '♟'];
-
-interface EditModalProps {
-  fen: string;
-  onClose: () => void;
-  onLoad: (fen: string) => void;
+function generateChess960FEN(): string {
+  const pieces: (string | null)[] = Array(8).fill(null);
+  const lightSq = [0, 2, 4, 6];
+  const darkSq = [1, 3, 5, 7];
+  pieces[lightSq[Math.floor(Math.random() * 4)]] = 'b';
+  pieces[darkSq[Math.floor(Math.random() * 4)]] = 'b';
+  const emptyQ = pieces.map((p, i) => p === null ? i : -1).filter(i => i >= 0);
+  pieces[emptyQ[Math.floor(Math.random() * emptyQ.length)]] = 'q';
+  const emptyN = pieces.map((p, i) => p === null ? i : -1).filter(i => i >= 0);
+  const n1 = Math.floor(Math.random() * emptyN.length);
+  pieces[emptyN[n1]] = 'n';
+  emptyN.splice(n1, 1);
+  pieces[emptyN[Math.floor(Math.random() * emptyN.length)]] = 'n';
+  const rem = pieces.map((p, i) => p === null ? i : -1).filter(i => i >= 0);
+  pieces[rem[0]] = 'r'; pieces[rem[1]] = 'k'; pieces[rem[2]] = 'r';
+  const back = pieces.join('');
+  return `${back}/pppppppp/8/8/8/8/PPPPPPPP/${back.toUpperCase()} w KQkq - 0 1`;
 }
 
-function EditPositionModal({ fen, onClose, onLoad }: EditModalProps) {
-  const [fenStr, setFenStr] = useState(fen);
-  const [toMove, setToMove] = useState<'w' | 'b'>('w');
+/* ─── Edit Mode types ────────────────────────────── */
 
-  return (
-    <motion.div
-      className="fixed inset-0 z-50 flex items-center justify-center p-4"
-      initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
-    >
-      <motion.div
-        className="absolute inset-0 bg-black/70 backdrop-blur-sm"
-        onClick={onClose}
-        initial={{ opacity: 0 }} animate={{ opacity: 1 }}
-      />
-      <motion.div
-        className="relative z-10 w-full max-w-md rounded-2xl border border-brand-border overflow-hidden"
-        style={{ background: '#0B1628' }}
-        initial={{ scale: 0.88, opacity: 0, y: 24 }}
-        animate={{ scale: 1, opacity: 1, y: 0 }}
-        exit={{ scale: 0.88, opacity: 0, y: 24 }}
-        transition={{ type: 'spring', stiffness: 500, damping: 32 }}
-      >
-        {/* Header */}
-        <div className="flex items-center justify-between px-5 py-4 border-b border-brand-border">
-          <h3 className="text-white font-bold text-base">Edit Position</h3>
-          <button onClick={onClose} className="text-text-muted hover:text-white text-xl leading-none transition-colors cursor-pointer" aria-label="Close">✕</button>
-        </div>
+type EditTool = 'cursor' | 'eraser' | { color: Color; type: string };
 
-        <div className="p-5 flex flex-col gap-5">
-          {/* White pieces palette */}
-          <div>
-            <p className="text-xs font-semibold text-text-muted uppercase tracking-wider mb-2">White</p>
-            <div className="flex gap-2">
-              {EDIT_WHITE_PIECES.map(s => (
-                <button key={s} className="w-10 h-10 rounded-lg bg-brand-surface border border-brand-border hover:border-brand-accent/50 text-xl flex items-center justify-center transition-all cursor-pointer">{s}</button>
-              ))}
-            </div>
-          </div>
+const EDIT_W: Array<{ sym: string; type: string }> = [
+  { sym: '♔', type: 'k' }, { sym: '♕', type: 'q' }, { sym: '♖', type: 'r' },
+  { sym: '♗', type: 'b' }, { sym: '♘', type: 'n' }, { sym: '♙', type: 'p' },
+];
+const EDIT_B: Array<{ sym: string; type: string }> = [
+  { sym: '♚', type: 'k' }, { sym: '♛', type: 'q' }, { sym: '♜', type: 'r' },
+  { sym: '♝', type: 'b' }, { sym: '♞', type: 'n' }, { sym: '♟', type: 'p' },
+];
 
-          {/* Black pieces palette */}
-          <div>
-            <p className="text-xs font-semibold text-text-muted uppercase tracking-wider mb-2">Black</p>
-            <div className="flex gap-2">
-              {EDIT_BLACK_PIECES.map(s => (
-                <button key={s} className="w-10 h-10 rounded-lg bg-brand-surface border border-brand-border hover:border-brand-accent/50 text-xl flex items-center justify-center transition-all cursor-pointer">{s}</button>
-              ))}
-            </div>
-          </div>
-
-          {/* Side to move */}
-          <div className="flex gap-2">
-            <button
-              onClick={() => setToMove('w')}
-              className={`flex-1 py-2.5 rounded-xl text-sm font-bold transition-all cursor-pointer ${toMove === 'w' ? 'bg-brand-accent text-white' : 'bg-brand-surface text-text-muted border border-brand-border hover:border-brand-accent/40'}`}
-            >White to move</button>
-            <button
-              onClick={() => setToMove('b')}
-              className={`flex-1 py-2.5 rounded-xl text-sm font-bold transition-all cursor-pointer ${toMove === 'b' ? 'bg-brand-accent text-white' : 'bg-brand-surface text-text-muted border border-brand-border hover:border-brand-accent/40'}`}
-            >Black to move</button>
-          </div>
-
-          {/* FEN input */}
-          <div>
-            <p className="text-xs font-semibold text-text-muted uppercase tracking-wider mb-2">FEN</p>
-            <input
-              type="text"
-              value={fenStr}
-              onChange={e => setFenStr(e.target.value)}
-              className="w-full px-3 py-2.5 rounded-lg bg-brand-navy border border-brand-border text-white text-xs font-mono focus:outline-none focus:border-brand-accent/60 transition-colors"
-            />
-          </div>
-
-          {/* Action buttons */}
-          <div className="grid grid-cols-2 gap-2">
-            {[
-              { label: '🗑 Clear', action: () => setFenStr('8/8/8/8/8/8/8/8 w - - 0 1') },
-              { label: '♟ Starting Position', action: () => setFenStr(STARTING_FEN) },
-              { label: '⇄ Shuffle', action: () => {} },
-              { label: '↕ Switch Sides', action: () => {} },
-            ].map(({ label, action }) => (
-              <button
-                key={label}
-                onClick={action}
-                className="py-2.5 rounded-xl text-sm font-semibold text-text-secondary bg-brand-surface border border-brand-border hover:text-white hover:border-brand-accent/40 transition-all cursor-pointer"
-              >{label}</button>
-            ))}
-          </div>
-
-          {/* Load button */}
-          <motion.button
-            onClick={() => { onLoad(fenStr); onClose(); }}
-            className="w-full py-3 rounded-xl font-bold text-white text-sm transition-all cursor-pointer"
-            style={{ background: 'linear-gradient(135deg, #5B6EF5, #6e63f6)' }}
-            whileHover={{ scale: 1.02 }} whileTap={{ scale: 0.98 }}
-          >
-            Load Position
-          </motion.button>
-        </div>
-      </motion.div>
-    </motion.div>
-  );
-}
 
 /* ─── Main Component ─────────────────────────────── */
 
@@ -247,7 +169,10 @@ export default function EnginePlayground() {
   const [gameStatus, setGameStatus] = useState<string | null>(null);
   const [activeBtn, setActiveBtn] = useState<string | null>(null);
   const [showMore, setShowMore] = useState(false);
-  const [showEditModal, setShowEditModal] = useState(false);
+  const [isEditMode, setIsEditMode] = useState(false);
+  const [editTool, setEditTool] = useState<EditTool>('cursor');
+  const [editToMove, setEditToMove] = useState<'w' | 'b'>('w');
+  const [editCastle, setEditCastle] = useState({ K: true, Q: true, k: true, q: true });
   const [hintMove, setHintMove] = useState<{ from: string; to: string } | null>(null);
   const moveLogRef = useRef<HTMLDivElement>(null);
 
@@ -288,9 +213,9 @@ export default function EnginePlayground() {
     setEvalScore(computeEval(g));
 
     let status: string | null = null;
-    if (g.isCheckmate())   status = g.turn() === 'w' ? '0–1  Black wins!' : '1–0  White wins!';
+    if (g.isCheckmate()) status = g.turn() === 'w' ? '0–1  Black wins!' : '1–0  White wins!';
     else if (g.isStalemate()) status = '½–½  Stalemate';
-    else if (g.isDraw())     status = '½–½  Draw';
+    else if (g.isDraw()) status = '½–½  Draw';
     setGameStatus(status);
   }, []);
 
@@ -337,8 +262,41 @@ export default function EnginePlayground() {
     }, delay);
   }, [difficulty, syncAfterMove]);
 
+  /* ── Edit Mode square click ────────────── */
+  const handleEditClick = useCallback((sq: string) => {
+    const g = gameRef.current;
+    const sqTyped = sq as Parameters<typeof g.get>[0];
+    if (editTool === 'eraser') {
+      g.remove(sqTyped);
+      pieceIdsRef.current = initPieceIds(g);
+      setTick(t => t + 1);
+    } else if (editTool === 'cursor') {
+      const piece = g.get(sqTyped);
+      if (selectedSq) {
+        const srcPiece = g.get(selectedSq as Parameters<typeof g.get>[0]);
+        if (srcPiece) {
+          g.remove(selectedSq as Parameters<typeof g.remove>[0]);
+          g.remove(sqTyped);
+          g.put(srcPiece, sqTyped);
+          pieceIdsRef.current = initPieceIds(g);
+          setTick(t => t + 1);
+        }
+        setSelectedSq(null);
+      } else if (piece) {
+        setSelectedSq(sq);
+      }
+    } else {
+      const tool = editTool as { color: Color; type: string };
+      g.remove(sqTyped);
+      g.put({ type: tool.type as 'k' | 'q' | 'r' | 'b' | 'n' | 'p', color: tool.color }, sqTyped);
+      pieceIdsRef.current = initPieceIds(g);
+      setTick(t => t + 1);
+    }
+  }, [editTool, selectedSq]);
+
   /* ── Square click ────────────────────────── */
   const handleSquareClick = useCallback((sq: string) => {
+    if (isEditMode) { handleEditClick(sq); return; }
     if (isAIThinking || gameStatus) return;
     const g = gameRef.current;
     if (g.turn() !== 'w') return; // human plays white
@@ -363,7 +321,7 @@ export default function EnginePlayground() {
     } else {
       setSelectedSq(null); setLegalTargets([]);
     }
-  }, [isAIThinking, gameStatus, selectedSq, legalTargets, executeMove, triggerAI]);
+  }, [isEditMode, handleEditClick, isAIThinking, gameStatus, selectedSq, legalTargets, executeMove, triggerAI]);
 
   /* ── Undo ────────────────────────────────── */
   const handleUndo = useCallback(() => {
@@ -407,10 +365,69 @@ export default function EnginePlayground() {
       pieceIdsRef.current = initPieceIds(gameRef.current);
       setLastMove(null); setSelectedSq(null); setLegalTargets([]);
       setGameStatus(null); setHintMove(null);
+      setMoveHistory([]); setEvalScore(computeEval(gameRef.current));
       setTick(t => t + 1);
-      syncAfterMove();
     } catch { /* invalid FEN */ }
-  }, [syncAfterMove]);
+  }, []);
+
+  /* ── Chess960 ────────────────────────────── */
+  const handleChess960 = useCallback(() => {
+    const fen = generateChess960FEN();
+    handleLoadPosition(fen);
+  }, [handleLoadPosition]);
+
+  /* ── Enter Edit Mode ─────────────────────── */
+  const enterEditMode = useCallback(() => {
+    setIsEditMode(true);
+    setEditTool('cursor');
+    setEditToMove(gameRef.current.turn());
+    setEditCastle({ K: true, Q: true, k: true, q: true });
+    setSelectedSq(null); setLegalTargets([]); setHintMove(null);
+  }, []);
+
+  /* ── Save (exit) Edit Mode ──────────────── */
+  const saveEditPosition = useCallback(() => {
+    // Build FEN from current board + edit settings
+    const g = gameRef.current;
+    const rows: string[] = [];
+    for (let r = 0; r < 8; r++) {
+      let row = '';
+      let empty = 0;
+      for (let c = 0; c < 8; c++) {
+        const p = g.board()[r][c];
+        if (p) {
+          if (empty > 0) { row += empty; empty = 0; }
+          const ch = p.type === 'k' ? 'k' : p.type === 'q' ? 'q' : p.type === 'r' ? 'r' : p.type === 'b' ? 'b' : p.type === 'n' ? 'n' : 'p';
+          row += p.color === 'w' ? ch.toUpperCase() : ch;
+        } else {
+          empty++;
+        }
+      }
+      if (empty > 0) row += empty;
+      rows.push(row);
+    }
+    const castleStr = (editCastle.K ? 'K' : '') + (editCastle.Q ? 'Q' : '') + (editCastle.k ? 'k' : '') + (editCastle.q ? 'q' : '') || '-';
+    const fen = `${rows.join('/')} ${editToMove} ${castleStr} - 0 1`;
+    try {
+      gameRef.current = new Chess(fen);
+      pieceIdsRef.current = initPieceIds(gameRef.current);
+      setIsEditMode(false);
+      setSelectedSq(null); setLegalTargets([]);
+      setMoveHistory([]); setEvalScore(computeEval(gameRef.current));
+      setGameStatus(null); setHintMove(null);
+      setTick(t => t + 1);
+    } catch { /* invalid position, stay in edit mode */ }
+  }, [editToMove, editCastle]);
+
+
+
+  /* ── Edit mode FEN display ─────────────── */
+  const editFen = useMemo(() => {
+    if (!isEditMode) return '';
+    return gameRef.current.fen();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [isEditMode, tick]);
+
 
   /* ── Eval bar ────────────────────────────── */
   const whitePercent = Math.max(4, Math.min(96, 50 + evalScore * 4));
@@ -480,9 +497,9 @@ export default function EnginePlayground() {
           <div className="flex flex-col lg:flex-row">
 
             {/* ── LEFT: Eval bar + Board ───────────── */}
-            <div className="flex flex-row">
+            <div className="flex flex-row w-full lg:w-[532px] shrink-0 mx-auto lg:mx-0">
               {/* Eval bar */}
-              <div className="flex flex-col items-center justify-between w-8 bg-[#090F1D] border-r border-[#1A2744] py-2 gap-1" style={{ minHeight: 400 }}>
+              <div className="flex flex-col items-center justify-between w-8 shrink-0 bg-[#090F1D] border-r border-[#1A2744] py-2 gap-1">
                 {/* Black portion */}
                 <motion.div
                   className="w-3 rounded-b-full bg-[#1a1a1a] border border-[#333]"
@@ -503,30 +520,30 @@ export default function EnginePlayground() {
               </div>
 
               {/* Board */}
-              <div className="flex flex-col">
+              <div className="flex flex-col flex-1 min-w-0">
                 <div
-                  className="relative"
-                  style={{ width: 'clamp(280px, 50vw, 500px)', aspectRatio: '1' }}
+                  className="relative w-full"
+                  style={{ aspectRatio: '1' }}
                 >
                   {/* Squares */}
                   <div className="absolute inset-0 grid grid-cols-8">
                     {boardSquares.map(({ sq, row, col, isLight }) => {
-                      const isFrom   = lastMove?.from === sq;
-                      const isTo     = lastMove?.to   === sq;
-                      const isSel    = selectedSq === sq;
-                      const isLegal  = legalTargets.includes(sq);
-                      const isHFrom  = hintMove?.from === sq;
-                      const isHTo    = hintMove?.to   === sq;
-                      const pHere    = gameRef.current.get(sq as Parameters<typeof gameRef.current.get>[0]);
-                      const inCheck  = gameRef.current.inCheck()
+                      const isFrom = lastMove?.from === sq;
+                      const isTo = lastMove?.to === sq;
+                      const isSel = selectedSq === sq;
+                      const isLegal = legalTargets.includes(sq);
+                      const isHFrom = hintMove?.from === sq;
+                      const isHTo = hintMove?.to === sq;
+                      const pHere = gameRef.current.get(sq as Parameters<typeof gameRef.current.get>[0]);
+                      const inCheck = gameRef.current.inCheck()
                         && pHere?.type === 'k'
                         && pHere.color === gameRef.current.turn();
 
                       let bg = isLight ? '#E8EDC8' : '#779556';
                       if (isFrom || isTo) bg = isLight ? '#F5F682' : '#CDD16E';
-                      if (isSel)          bg = isLight ? '#F5F682' : '#CDD16E';
+                      if (isSel) bg = isLight ? '#F5F682' : '#CDD16E';
                       if (isHFrom || isHTo) bg = isLight ? '#FDE68A' : '#D97706';
-                      if (inCheck)        bg = '#ef4444';
+                      if (inCheck) bg = '#ef4444';
 
                       return (
                         <div
@@ -658,125 +675,249 @@ export default function EnginePlayground() {
             </div>
 
             {/* ── RIGHT: Controls ──────────────────── */}
-            <div className="flex-1 flex flex-col p-5 gap-5 border-t lg:border-t-0 lg:border-l border-[#1A2744] min-w-[220px]">
+            <div className="flex-1 flex flex-col p-5 gap-4 border-t lg:border-t-0 lg:border-l border-[#1A2744] min-w-[220px] relative">
 
-              {/* Control buttons */}
-              <div className="flex items-center gap-2 relative">
-                {ctrlBtns.map(btn => {
-                  const isActive = activeBtn === btn.id;
-                  const activeColor = btn.color ?? '#6e63f6';
-                  return (
-                    <motion.button
-                      key={btn.id}
-                      id={`ep-${btn.id}`}
-                      type="button"
-                      onClick={btn.action}
-                      className="flex-1 flex flex-col items-center gap-1.5 py-2.5 px-1 rounded-xl transition-all duration-200 cursor-pointer border"
-                      style={{
-                        color: isActive ? activeColor : '#8899B4',
-                        borderColor: isActive ? activeColor : '#1A2744',
-                        background: isActive ? `${activeColor}18` : 'transparent',
-                      }}
-                      whileHover={{ scale: 1.05, color: '#fff' }}
-                      whileTap={{ scale: 0.93 }}
-                      aria-label={btn.label}
-                      aria-pressed={isActive}
-                    >
-                      {btn.icon}
-                      <span className="text-[0.6rem] font-semibold tracking-wide">{btn.label}</span>
-                    </motion.button>
-                  );
-                })}
+              {isEditMode ? (
+                /* ════════ EDIT MODE PANEL ════════ */
+                <>
+                  {/* Close button */}
+                  <button
+                    onClick={() => setIsEditMode(false)}
+                    className="absolute top-3 right-3 text-text-muted hover:text-white text-lg leading-none transition-colors cursor-pointer z-10"
+                    aria-label="Close edit mode"
+                  >✕</button>
 
-                {/* "More" dropdown */}
-                <AnimatePresence>
-                  {showMore && (
-                    <motion.div
-                      className="absolute top-full right-0 mt-2 w-44 rounded-xl border border-[#1A2744] overflow-hidden z-30"
-                      style={{ background: '#0F1C33', boxShadow: '0 12px 36px rgba(0,0,0,0.5)' }}
-                      initial={{ opacity: 0, scale: 0.88, y: -8 }}
-                      animate={{ opacity: 1, scale: 1, y: 0 }}
-                      exit={{ opacity: 0, scale: 0.88, y: -8 }}
-                      transition={{ type: 'spring', stiffness: 500, damping: 30 }}
-                    >
-                      {[
-                        {
-                          icon: '⇄', label: 'Chess960',
-                          action: () => { setShowMore(false); },
-                        },
-                        {
-                          icon: '✏️', label: 'Edit Position',
-                          action: () => { setShowMore(false); setShowEditModal(true); },
-                        },
-                      ].map(item => (
+                  {/* White pieces palette */}
+                  <div className="flex gap-1.5 flex-wrap">
+                    {EDIT_W.map(p => {
+                      const isActive = typeof editTool === 'object' && editTool.color === 'w' && editTool.type === p.type;
+                      return (
                         <button
-                          key={item.label}
-                          onClick={item.action}
-                          className="w-full flex items-center gap-3 px-4 py-3 text-sm text-text-secondary hover:text-white hover:bg-white/5 transition-all cursor-pointer text-left"
+                          key={p.sym}
+                          onClick={() => setEditTool({ color: 'w', type: p.type })}
+                          className={`w-10 h-10 rounded-lg text-xl flex items-center justify-center transition-all cursor-pointer border ${isActive ? 'bg-brand-accent/20 border-brand-accent text-white' : 'bg-brand-surface border-brand-border hover:border-brand-accent/50 text-white/80'}`}
+                        >{p.sym}</button>
+                      );
+                    })}
+                  </div>
+
+                  {/* Black pieces palette */}
+                  <div className="flex gap-1.5 flex-wrap">
+                    {EDIT_B.map(p => {
+                      const isActive = typeof editTool === 'object' && editTool.color === 'b' && editTool.type === p.type;
+                      return (
+                        <button
+                          key={p.sym}
+                          onClick={() => setEditTool({ color: 'b', type: p.type })}
+                          className={`w-10 h-10 rounded-lg text-xl flex items-center justify-center transition-all cursor-pointer border ${isActive ? 'bg-brand-accent/20 border-brand-accent text-white' : 'bg-brand-surface border-brand-border hover:border-brand-accent/50 text-white/80'}`}
+                        >{p.sym}</button>
+                      );
+                    })}
+                  </div>
+
+                  {/* Cursor / Eraser toggle */}
+                  <div className="flex gap-2">
+                    <button
+                      onClick={() => setEditTool('cursor')}
+                      className={`flex-1 py-2 rounded-lg text-sm font-semibold transition-all cursor-pointer border ${editTool === 'cursor' ? 'bg-brand-accent/20 border-brand-accent text-white' : 'bg-brand-surface border-brand-border text-text-muted hover:border-brand-accent/40'}`}
+                    >☝ Cursor</button>
+                    <button
+                      onClick={() => setEditTool('eraser')}
+                      className={`flex-1 py-2 rounded-lg text-sm font-semibold transition-all cursor-pointer border ${editTool === 'eraser' ? 'bg-red-500/20 border-red-500 text-red-400' : 'bg-brand-surface border-brand-border text-text-muted hover:border-red-500/40'}`}
+                    >◇ Eraser</button>
+                  </div>
+
+                  {/* Side to move */}
+                  <div className="flex gap-2">
+                    <button
+                      onClick={() => setEditToMove('w')}
+                      className={`flex-1 py-2.5 rounded-xl text-sm font-bold transition-all cursor-pointer ${editToMove === 'w' ? 'bg-brand-accent text-white' : 'bg-brand-surface text-text-muted border border-brand-border hover:border-brand-accent/40'}`}
+                    >White to move</button>
+                    <button
+                      onClick={() => setEditToMove('b')}
+                      className={`flex-1 py-2.5 rounded-xl text-sm font-bold transition-all cursor-pointer ${editToMove === 'b' ? 'bg-brand-accent text-white' : 'bg-brand-surface text-text-muted border border-brand-border hover:border-brand-accent/40'}`}
+                    >Black to move</button>
+                  </div>
+
+                  {/* Castling rights */}
+                  <div className="flex gap-6">
+                    <div>
+                      <p className="text-[0.65rem] font-bold text-text-muted uppercase tracking-wider mb-1">White</p>
+                      <label className="flex items-center gap-1.5 text-xs text-text-secondary cursor-pointer">
+                        <input type="checkbox" checked={editCastle.K} onChange={e => setEditCastle(c => ({ ...c, K: e.target.checked }))} className="accent-brand-accent" /> (O-O)
+                      </label>
+                      <label className="flex items-center gap-1.5 text-xs text-text-secondary cursor-pointer">
+                        <input type="checkbox" checked={editCastle.Q} onChange={e => setEditCastle(c => ({ ...c, Q: e.target.checked }))} className="accent-brand-accent" /> (O-O-O)
+                      </label>
+                    </div>
+                    <div>
+                      <p className="text-[0.65rem] font-bold text-text-muted uppercase tracking-wider mb-1">Black</p>
+                      <label className="flex items-center gap-1.5 text-xs text-text-secondary cursor-pointer">
+                        <input type="checkbox" checked={editCastle.k} onChange={e => setEditCastle(c => ({ ...c, k: e.target.checked }))} className="accent-brand-accent" /> (O-O)
+                      </label>
+                      <label className="flex items-center gap-1.5 text-xs text-text-secondary cursor-pointer">
+                        <input type="checkbox" checked={editCastle.q} onChange={e => setEditCastle(c => ({ ...c, q: e.target.checked }))} className="accent-brand-accent" /> (O-O-O)
+                      </label>
+                    </div>
+                  </div>
+
+                  {/* FEN display */}
+                  <input
+                    type="text"
+                    value={editFen}
+                    onChange={e => handleLoadPosition(e.target.value)}
+                    className="w-full px-3 py-2 rounded-lg bg-brand-navy border border-brand-border text-white text-[0.6rem] font-mono focus:outline-none focus:border-brand-accent/60 transition-colors"
+                    spellCheck={false}
+                  />
+
+                  {/* Quick actions */}
+                  <div className="flex flex-col gap-1.5">
+                    {[
+                      { icon: '🗑', label: 'Clear', action: () => handleLoadPosition('8/8/8/8/8/8/8/8 w - - 0 1') },
+                      { icon: '♟', label: 'Starting Position', action: () => handleLoadPosition(STARTING_FEN) },
+                      { icon: '⇄', label: 'Shuffle', action: () => handleLoadPosition(generateChess960FEN()) },
+                    ].map(item => (
+                      <button
+                        key={item.label}
+                        onClick={item.action}
+                        className="w-full py-2 rounded-xl text-sm font-semibold text-text-secondary bg-brand-surface border border-brand-border hover:text-white hover:border-brand-accent/40 transition-all cursor-pointer flex items-center justify-center gap-2"
+                      >
+                        <span>{item.icon}</span> {item.label}
+                      </button>
+                    ))}
+                  </div>
+
+                  {/* Load / Save button */}
+                  <motion.button
+                    onClick={saveEditPosition}
+                    className="w-full py-3 rounded-xl font-bold text-white text-sm transition-all cursor-pointer"
+                    style={{ background: 'linear-gradient(135deg, #5B6EF5, #6e63f6)' }}
+                    whileHover={{ scale: 1.02 }} whileTap={{ scale: 0.98 }}
+                  >
+                    Load
+                  </motion.button>
+                </>
+              ) : (
+                /* ════════ NORMAL GAME CONTROLS ════════ */
+                <>
+                  {/* Control buttons */}
+                  <div className="flex items-center gap-2 relative">
+                    {ctrlBtns.map(btn => {
+                      const isActive = activeBtn === btn.id;
+                      const activeColor = btn.color ?? '#6e63f6';
+                      return (
+                        <motion.button
+                          key={btn.id}
+                          id={`ep-${btn.id}`}
+                          type="button"
+                          onClick={btn.action}
+                          className="flex-1 flex flex-col items-center gap-1.5 py-2.5 px-1 rounded-xl transition-all duration-200 cursor-pointer border"
+                          style={{
+                            color: isActive ? activeColor : '#8899B4',
+                            borderColor: isActive ? activeColor : '#1A2744',
+                            background: isActive ? `${activeColor}18` : 'transparent',
+                          }}
+                          whileHover={{ scale: 1.05, color: '#fff' }}
+                          whileTap={{ scale: 0.93 }}
+                          aria-label={btn.label}
+                          aria-pressed={isActive}
                         >
-                          <span>{item.icon}</span>
-                          <span>{item.label}</span>
-                        </button>
+                          {btn.icon}
+                          <span className="text-[0.6rem] font-semibold tracking-wide">{btn.label}</span>
+                        </motion.button>
+                      );
+                    })}
+
+                    {/* "More" dropdown */}
+                    <AnimatePresence>
+                      {showMore && (
+                        <motion.div
+                          className="absolute top-full right-0 mt-2 w-44 rounded-xl border border-[#1A2744] overflow-hidden z-30"
+                          style={{ background: '#0F1C33', boxShadow: '0 12px 36px rgba(0,0,0,0.5)' }}
+                          initial={{ opacity: 0, scale: 0.88, y: -8 }}
+                          animate={{ opacity: 1, scale: 1, y: 0 }}
+                          exit={{ opacity: 0, scale: 0.88, y: -8 }}
+                          transition={{ type: 'spring', stiffness: 500, damping: 30 }}
+                        >
+                          {[
+                            {
+                              icon: '⇄', label: 'Chess960',
+                              action: () => { setShowMore(false); handleChess960(); },
+                            },
+                            {
+                              icon: '✏️', label: 'Edit Position',
+                              action: () => { setShowMore(false); enterEditMode(); },
+                            },
+                          ].map(item => (
+                            <button
+                              key={item.label}
+                              onClick={item.action}
+                              className="w-full flex items-center gap-3 px-4 py-3 text-sm text-text-secondary hover:text-white hover:bg-white/5 transition-all cursor-pointer text-left"
+                            >
+                              <span>{item.icon}</span>
+                              <span>{item.label}</span>
+                            </button>
+                          ))}
+                        </motion.div>
+                      )}
+                    </AnimatePresence>
+                  </div>
+
+                  {/* Difficulty selector */}
+                  <div>
+                    <div className="flex items-center justify-between mb-2.5">
+                      <span className="text-xs font-semibold text-text-secondary uppercase tracking-wider">Difficulty</span>
+                      <span className="text-xs font-bold text-brand-accent">{DIFFICULTY_LABELS[difficulty]}</span>
+                    </div>
+                    <div className="flex gap-1.5">
+                      {[1, 2, 3, 4, 5].map(d => (
+                        <motion.button
+                          key={d}
+                          onClick={() => setDifficulty(d)}
+                          className={`flex-1 h-9 rounded-lg text-sm font-black transition-all duration-200 cursor-pointer border ${difficulty === d
+                              ? 'bg-brand-accent text-white border-brand-accent shadow-lg'
+                              : 'bg-transparent text-text-muted border-[#1A2744] hover:border-brand-accent/40 hover:text-white'
+                            }`}
+                          style={difficulty === d ? { boxShadow: '0 0 14px rgba(110,99,246,0.5)' } : {}}
+                          whileTap={{ scale: 0.93 }}
+                          aria-pressed={difficulty === d}
+                          aria-label={DIFFICULTY_LABELS[d]}
+                        >
+                          {d}
+                        </motion.button>
                       ))}
-                    </motion.div>
-                  )}
-                </AnimatePresence>
-              </div>
+                    </div>
+                  </div>
 
-              {/* Difficulty selector */}
-              <div>
-                <div className="flex items-center justify-between mb-2.5">
-                  <span className="text-xs font-semibold text-text-secondary uppercase tracking-wider">Difficulty</span>
-                  <span className="text-xs font-bold text-brand-accent">{DIFFICULTY_LABELS[difficulty]}</span>
-                </div>
-                <div className="flex gap-1.5">
-                  {[1, 2, 3, 4, 5].map(d => (
-                    <motion.button
-                      key={d}
-                      onClick={() => setDifficulty(d)}
-                      className={`flex-1 h-9 rounded-lg text-sm font-black transition-all duration-200 cursor-pointer border ${
-                        difficulty === d
-                          ? 'bg-brand-accent text-white border-brand-accent shadow-lg'
-                          : 'bg-transparent text-text-muted border-[#1A2744] hover:border-brand-accent/40 hover:text-white'
-                      }`}
-                      style={difficulty === d ? { boxShadow: '0 0 14px rgba(110,99,246,0.5)' } : {}}
-                      whileTap={{ scale: 0.93 }}
-                      aria-pressed={difficulty === d}
-                      aria-label={DIFFICULTY_LABELS[d]}
-                    >
-                      {d}
-                    </motion.button>
-                  ))}
-                </div>
-              </div>
-
-              {/* Move log */}
-              <div
-                ref={moveLogRef}
-                className="flex-1 rounded-xl border border-[#1A2744] overflow-y-auto font-mono text-sm"
-                style={{ background: '#090F1D', minHeight: 140, maxHeight: 260, padding: '12px' }}
-                role="log"
-                aria-label="Move history"
-                aria-live="polite"
-              >
-                {moveHistory.length === 0 ? (
-                  <p className="text-text-muted text-xs">No moves yet. Make a move on the board.</p>
-                ) : (
-                  moveHistory.map(({ n, w, b }) => (
-                    <motion.div
-                      key={n}
-                      className="flex gap-3 py-0.5 text-xs"
-                      initial={{ opacity: 0, x: -8 }}
-                      animate={{ opacity: 1, x: 0 }}
-                      transition={{ duration: 0.2 }}
-                    >
-                      <span className="text-text-muted w-5 shrink-0">{n}.</span>
-                      <span className="text-white font-semibold w-14">{w}</span>
-                      {b && <span className="text-text-secondary">{b}</span>}
-                    </motion.div>
-                  ))
-                )}
-              </div>
+                  {/* Move log */}
+                  <div
+                    ref={moveLogRef}
+                    className="flex-1 rounded-xl border border-[#1A2744] overflow-y-auto font-mono text-sm"
+                    style={{ background: '#090F1D', minHeight: 140, maxHeight: 260, padding: '12px' }}
+                    role="log"
+                    aria-label="Move history"
+                    aria-live="polite"
+                  >
+                    {moveHistory.length === 0 ? (
+                      <p className="text-text-muted text-xs">No moves yet. Make a move on the board.</p>
+                    ) : (
+                      moveHistory.map(({ n, w, b }) => (
+                        <motion.div
+                          key={n}
+                          className="flex gap-3 py-0.5 text-xs"
+                          initial={{ opacity: 0, x: -8 }}
+                          animate={{ opacity: 1, x: 0 }}
+                          transition={{ duration: 0.2 }}
+                        >
+                          <span className="text-text-muted w-5 shrink-0">{n}.</span>
+                          <span className="text-white font-semibold w-14">{w}</span>
+                          {b && <span className="text-text-secondary">{b}</span>}
+                        </motion.div>
+                      ))
+                    )}
+                  </div>
+                </>
+              )}
             </div>
           </div>
         </motion.div>
@@ -786,17 +927,6 @@ export default function EnginePlayground() {
       {showMore && (
         <div className="fixed inset-0 z-20" onClick={() => setShowMore(false)} aria-hidden="true" />
       )}
-
-      {/* Edit Position Modal */}
-      <AnimatePresence>
-        {showEditModal && (
-          <EditPositionModal
-            fen={gameRef.current.fen()}
-            onClose={() => setShowEditModal(false)}
-            onLoad={handleLoadPosition}
-          />
-        )}
-      </AnimatePresence>
     </section>
   );
 }
