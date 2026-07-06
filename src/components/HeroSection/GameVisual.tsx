@@ -120,7 +120,7 @@ function getPieces(game: Chess, ids: Map<string, string>): PieceCell[] {
 
 const GameVisual = memo(function GameVisual() {
   // ── Autoplay state
-  const [posIdx, setPosIdx] = useState(AUTOPLAY_START);
+  const [, setPosIdx] = useState(AUTOPLAY_START);
   const [mode, setMode] = useState<'autoplay' | 'puzzle'>('autoplay');
   const [movesLeft, setMovesLeft] = useState(4);
   const [puzzleOver, setPuzzleOver] = useState(false);
