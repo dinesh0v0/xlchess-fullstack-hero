@@ -24,7 +24,7 @@ const SiteFooter = memo(function SiteFooter() {
 
         {/* Copyright */}
         <p className="text-text-muted text-sm order-last sm:order-none">
-          © 2026 DAChess.
+          DINESH :D
         </p>
 
         {/* Nav links */}
@@ -33,7 +33,7 @@ const SiteFooter = memo(function SiteFooter() {
             <li>
               <a
                 href="#hero"
-                onClick={(e) => { e.preventDefault(); document.getElementById('hero')?.scrollIntoView({ behavior: 'smooth' }); }}
+                onClick={(e) => { e.preventDefault(); document.getElementById('engine-playground')?.scrollIntoView({ behavior: 'smooth' }); }}
                 className="text-text-secondary hover:text-white transition-colors duration-200"
               >
                 Play
