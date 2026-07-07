@@ -276,7 +276,7 @@ const GameVisual = memo(function GameVisual() {
         style={{ border: '1.5px solid rgba(110,99,246,0.35)' }}
       >
         {/* ── Board ──────────────────────────────── */}
-        <div className="relative bg-[#0B1628] p-1 sm:p-1.5">
+        <div className="relative bg-[#141414] p-1 sm:p-1.5">
           <div className="relative" style={{ aspectRatio: '1' }}>
             {/* Square backgrounds + click targets */}
             <div className="absolute inset-0 grid grid-cols-8">
@@ -286,41 +286,46 @@ const GameVisual = memo(function GameVisual() {
                 const isSel  = selectedSq === sq;
                 const isLeg  = legalTargets.includes(sq);
                 const pieceHere = gameRef.current.get(sq as Parameters<typeof gameRef.current.get>[0]);
+                const inCheck = gameRef.current.inCheck() && pieceHere?.type === 'k' && pieceHere.color === gameRef.current.turn();
 
-                let bg = isLight ? '#E8EDC8' : '#779556';
-                if (isFrom || isToo) bg = isLight ? '#F5F682' : '#CDD16E';
-                if (isSel)          bg = '#F5E882';
+                let bg = isLight ? '#e0e0e0' : '#4a4a4a';
+                if (isFrom || isToo) bg = isLight ? '#fcd34d' : '#d4af37';
+                if (isSel)          bg = '#fcd34d';
 
                 return (
                   <div
                     key={sq}
                     style={{ background: bg }}
-                    className={`relative ${mode === 'puzzle' ? 'cursor-pointer' : ''}`}
+                    className={`relative ${mode === 'puzzle' ? 'cursor-pointer' : ''} ${inCheck ? 'animate-check-heartbeat' : ''} ${isToo ? 'z-10' : ''}`}
                     onClick={() => mode === 'puzzle' && handlePuzzleClick(sq)}
                   >
                     {/* Rank label */}
                     {col === 0 && (
                       <span
                         className="absolute top-0.5 left-0.5 leading-none select-none font-bold"
-                        style={{ color: isLight ? '#779556' : '#E8EDC8', fontSize: '0.6rem' }}
+                        style={{ color: isLight ? '#4a4a4a' : '#e0e0e0', fontSize: '0.6rem' }}
                       >{8 - row}</span>
                     )}
                     {/* File label */}
                     {row === 7 && (
                       <span
                         className="absolute bottom-0.5 right-0.5 leading-none select-none font-bold"
-                        style={{ color: isLight ? '#779556' : '#E8EDC8', fontSize: '0.6rem' }}
+                        style={{ color: isLight ? '#4a4a4a' : '#e0e0e0', fontSize: '0.6rem' }}
                       >{FILES[col]}</span>
                     )}
                     {/* Legal move dot */}
                     {isLeg && !pieceHere && (
-                      <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
-                        <div className="rounded-full bg-black/25" style={{ width: '33%', height: '33%' }} />
+                      <div className="absolute inset-0 flex items-center justify-center pointer-events-none opacity-60">
+                        <div className="w-1/2 h-1/2 rounded-full animate-pulse" style={{ background: 'radial-gradient(circle, #d4af37 0%, transparent 70%)' }} />
                       </div>
                     )}
                     {/* Legal capture ring */}
                     {isLeg && pieceHere && (
-                      <div className="absolute inset-0 rounded-[2px] ring-[4px] ring-inset ring-black/30 pointer-events-none" />
+                      <div className="absolute inset-0 rounded-[2px] ring-[5px] ring-inset ring-[#d4af37]/60 animate-pulse pointer-events-none" />
+                    )}
+                    {/* Landing ripple */}
+                    {isToo && (
+                      <div key={`ripple-${tick}`} className="absolute inset-0 rounded-full animate-ripple pointer-events-none" />
                     )}
                   </div>
                 );
@@ -341,7 +346,7 @@ const GameVisual = memo(function GameVisual() {
                       left: `${p.col * 12.5}%`, top: `${p.row * 12.5}%`,
                     }}
                     exit={{ opacity: 0, scale: 0.2, transition: { duration: 0.18 } }}
-                    transition={{ layout: { type: 'spring', stiffness: 900, damping: 38, mass: 0.6 } }}
+                    transition={{ layout: { type: 'spring', stiffness: 400, damping: 28, mass: 0.8 } }}
                   >
                     <span
                       style={{
@@ -394,7 +399,7 @@ const GameVisual = memo(function GameVisual() {
               animate={{ opacity: 1 }}
               exit={{ opacity: 0, y: -8 }}
               transition={{ duration: 0.35 }}
-              className="bg-[#0F1C33] px-4 py-3 flex items-center justify-between border-t border-brand-border"
+              className="bg-[#1f1f1f] px-4 py-3 flex items-center justify-between border-t border-brand-border"
             >
               <div>
                 <p className="text-[0.6rem] font-semibold tracking-[0.18em] text-text-muted uppercase">
@@ -425,7 +430,7 @@ const GameVisual = memo(function GameVisual() {
               animate={{ opacity: 1, y: 0 }}
               exit={{ opacity: 0 }}
               transition={{ duration: 0.35, delay: 0.15 }}
-              className="bg-[#0F1C33] px-4 py-3 flex items-center justify-between border-t border-brand-border"
+              className="bg-[#1f1f1f] px-4 py-3 flex items-center justify-between border-t border-brand-border"
             >
               <div>
                 <p className="text-[0.6rem] font-semibold tracking-[0.15em] text-text-muted uppercase">
@@ -458,7 +463,7 @@ const GameVisual = memo(function GameVisual() {
               initial={{ opacity: 0 }}
               animate={{ opacity: 1 }}
               exit={{ opacity: 0 }}
-              className="bg-[#090F1E] px-4 py-2.5 flex items-center justify-center gap-2 border-t border-brand-border/40"
+              className="bg-[#0f0f0f] px-4 py-2.5 flex items-center justify-center gap-2 border-t border-brand-border/40"
             >
               <motion.svg
                 className="w-3.5 h-3.5 text-text-muted"
@@ -479,7 +484,7 @@ const GameVisual = memo(function GameVisual() {
               animate={{ opacity: 1, y: 0 }}
               exit={{ opacity: 0 }}
               transition={{ delay: 0.2 }}
-              className="bg-[#090F1E] px-3 py-2.5 flex items-center gap-2 border-t border-brand-border/40"
+              className="bg-[#0f0f0f] px-3 py-2.5 flex items-center gap-2 border-t border-brand-border/40"
             >
               <motion.button
                 onClick={handleReset}

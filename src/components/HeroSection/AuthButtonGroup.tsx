@@ -31,8 +31,8 @@ const AuthButtonGroup = memo(function AuthButtonGroup({ onPlayClick }: AuthButto
         onClick={handlePlay}
         className="group relative inline-flex items-center overflow-hidden rounded-xl cursor-pointer"
         style={{
-          background: 'linear-gradient(135deg, #5B6EF5 0%, #6e63f6 100%)',
-          boxShadow: '0 4px 20px rgba(91,110,245,0.45), 0 1px 0 rgba(255,255,255,0.08) inset',
+          background: 'linear-gradient(135deg, #d4af37 0%, #fcd34d 100%)',
+          boxShadow: '0 4px 20px rgba(212,175,55,0.45), 0 1px 0 rgba(255,255,255,0.08) inset',
           padding: '14px 28px',
         }}
         whileTap={{ scale: 0.97 }}
@@ -76,8 +76,8 @@ const AuthButtonGroup = memo(function AuthButtonGroup({ onPlayClick }: AuthButto
         {/* Glow ring that intensifies on hover */}
         <motion.span
           className="pointer-events-none absolute inset-0 rounded-xl"
-          style={{ boxShadow: '0 0 0px rgba(91,110,245,0)' }}
-          whileHover={{ boxShadow: '0 0 28px 4px rgba(110,99,246,0.55)' }}
+          style={{ boxShadow: '0 0 0px rgba(212,175,55,0)' }}
+          whileHover={{ boxShadow: '0 0 28px 4px rgba(252,211,77,0.55)' }}
           transition={{ duration: 0.25 }}
         />
       </motion.button>

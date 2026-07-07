@@ -526,26 +526,26 @@ export default function EnginePlayground() {
   return (
     <section
       id="engine-playground"
-      className="relative w-full bg-[#030915] py-16 px-4 sm:px-6"
+      className="relative w-full bg-[#0a0a0a] py-16 px-4 sm:px-6"
       aria-label="Interactive chess engine playground"
     >
       {/* Ambient glow */}
       <div className="absolute top-0 left-1/2 -translate-x-1/2 w-3/4 h-32 opacity-20 blur-3xl pointer-events-none"
-        style={{ background: 'radial-gradient(ellipse, #6e63f6 0%, transparent 70%)' }} />
+        style={{ background: 'radial-gradient(ellipse, #d4af37 0%, transparent 70%)' }} />
 
       <div className="relative z-10 max-w-[960px] mx-auto">
         <motion.div
-          className="rounded-2xl overflow-hidden border border-[#1A2744] flex flex-col lg:flex-row w-full h-fit bg-[#0B1628]"
-          style={{ boxShadow: '0 24px 80px rgba(0,0,0,0.6), 0 0 40px rgba(110,99,246,0.1)' }}
+          className="rounded-2xl overflow-hidden border border-[#2e2e2e] flex flex-col lg:flex-row w-full h-fit bg-[#141414]"
+          style={{ boxShadow: '0 24px 80px rgba(0,0,0,0.6), 0 0 40px rgba(212,175,55,0.1)' }}
           initial={{ opacity: 0, y: 40, scale: 0.96 }}
           whileInView={{ opacity: 1, y: 0, scale: 1 }}
           viewport={{ once: true, margin: '-60px' }}
           transition={{ duration: 0.75, ease: [0.22, 1, 0.36, 1] as [number, number, number, number] }}
         >
           {/* ── LEFT: Eval bar + Board ───────────── */}
-          <div className="flex flex-row w-full lg:w-[532px] shrink-0 border-b lg:border-b-0 lg:border-r border-[#1A2744] bg-[#090F1D]">
+          <div className="flex flex-row w-full lg:w-[532px] shrink-0 border-b lg:border-b-0 lg:border-r border-[#2e2e2e] bg-[#0f0f0f]">
               {/* Eval bar */}
-              <div className="flex flex-col items-center justify-between w-8 shrink-0 bg-[#090F1D] border-r border-[#1A2744] py-2 gap-1">
+              <div className="flex flex-col items-center justify-between w-8 shrink-0 bg-[#0f0f0f] border-r border-[#2e2e2e] py-2 gap-1">
                 {/* Black portion */}
                 <motion.div
                   className="w-3 rounded-b-full bg-[#1a1a1a] border border-[#333]"
@@ -585,39 +585,42 @@ export default function EnginePlayground() {
                         && pHere?.type === 'k'
                         && pHere.color === gameRef.current.turn();
 
-                      let bg = isLight ? '#E8EDC8' : '#779556';
-                      if (isFrom || isTo) bg = isLight ? '#F5F682' : '#CDD16E';
-                      if (isSel) bg = isLight ? '#F5F682' : '#CDD16E';
+                      let bg = isLight ? '#e0e0e0' : '#4a4a4a';
+                      if (isFrom || isTo) bg = isLight ? '#fcd34d' : '#d4af37';
+                      if (isSel) bg = isLight ? '#fcd34d' : '#d4af37';
                       if (isHFrom || isHTo) bg = isLight ? '#FDE68A' : '#D97706';
-                      if (inCheck) bg = '#ef4444';
 
                       return (
                         <div
                           key={sq}
                           style={{ background: bg }}
-                          className="relative cursor-pointer select-none"
+                          className={`relative cursor-pointer select-none ${inCheck ? 'animate-check-heartbeat' : ''} ${isTo ? 'z-10' : ''}`}
                           onClick={() => handleSquareClick(sq)}
                         >
                           {col === 0 && (
                             <span className="absolute top-0.5 left-0.5 leading-none font-bold select-none pointer-events-none"
-                              style={{ color: isLight ? '#779556' : '#E8EDC8', fontSize: '0.6rem' }}>
+                              style={{ color: isLight ? '#4a4a4a' : '#e0e0e0', fontSize: '0.6rem' }}>
                               {8 - row}
                             </span>
                           )}
                           {row === 7 && (
                             <span className="absolute bottom-0.5 right-0.5 leading-none font-bold select-none pointer-events-none"
-                              style={{ color: isLight ? '#779556' : '#E8EDC8', fontSize: '0.6rem' }}>
+                              style={{ color: isLight ? '#4a4a4a' : '#e0e0e0', fontSize: '0.6rem' }}>
                               {FILES[col]}
                             </span>
                           )}
-                          {/* Legal move: dot on empty, ring on capture */}
+                          {/* Legal move: breathing amber glow */}
                           {isLegal && !pHere && (
-                            <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
-                              <div className="rounded-full bg-black/22" style={{ width: '33%', height: '33%' }} />
+                            <div className="absolute inset-0 flex items-center justify-center pointer-events-none opacity-60">
+                              <div className="w-1/2 h-1/2 rounded-full animate-pulse" style={{ background: 'radial-gradient(circle, #d4af37 0%, transparent 70%)' }} />
                             </div>
                           )}
                           {isLegal && pHere && pHere.color !== 'w' && (
-                            <div className="absolute inset-0 rounded-[1px] ring-[5px] ring-inset ring-black/28 pointer-events-none" />
+                            <div className="absolute inset-0 rounded-[1px] ring-[5px] ring-inset ring-[#d4af37]/60 animate-pulse pointer-events-none" />
+                          )}
+                          {/* Landing ripple */}
+                          {isTo && (
+                            <div key={`ripple-${tick}`} className="absolute inset-0 rounded-full animate-ripple pointer-events-none" />
                           )}
                         </div>
                       );
@@ -639,7 +642,7 @@ export default function EnginePlayground() {
                           }}
                           exit={{ opacity: 0, scale: 0.15, transition: { duration: 0.18, ease: 'easeIn' } }}
                           transition={{
-                            layout: { type: 'spring', stiffness: 1100, damping: 42, mass: 0.55 },
+                            layout: { type: 'spring', stiffness: 400, damping: 28, mass: 0.8 },
                           }}
                         >
                             <img 
@@ -647,7 +650,7 @@ export default function EnginePlayground() {
                               alt={`${p.color} ${p.type}`}
                               className="w-[90%] h-[90%] object-contain drop-shadow-md"
                               style={{
-                                ...(selectedSq === p.square ? { filter: 'drop-shadow(0 0 8px rgba(245,246,130,0.85))' } : {}),
+                                ...(selectedSq === p.square ? { filter: 'drop-shadow(0 0 8px rgba(252,211,77,0.85))' } : {}),
                                 transition: 'filter 0.15s ease',
                               }}
                             />
@@ -674,7 +677,7 @@ export default function EnginePlayground() {
                           <p className="text-white font-black text-lg">{gameStatus}</p>
                           <motion.button
                             onClick={handleReset}
-                            className="mt-4 px-5 py-2 rounded-xl bg-brand-accent text-white text-sm font-bold cursor-pointer"
+                            className="mt-4 px-5 py-2 rounded-xl bg-brand-accent text-white text-sm font-bold cursor-pointer relative overflow-hidden animate-shine"
                             whileHover={{ scale: 1.05 }} whileTap={{ scale: 0.97 }}
                           >
                             New Game
@@ -686,7 +689,7 @@ export default function EnginePlayground() {
                 </div>
 
                 {/* Turn indicator */}
-                <div className="flex items-center gap-2 px-3 py-2 bg-[#090F1D] border-t border-[#1A2744]">
+                <div className="flex items-center gap-2 px-3 py-2 bg-[#0f0f0f] border-t border-[#2e2e2e]">
                   <motion.span
                     className={`w-3 h-3 rounded-full border ${gameRef.current.turn() === 'w' ? 'bg-white border-gray-300' : 'bg-gray-900 border-gray-500'}`}
                     animate={{ scale: [1, 1.2, 1] }}
@@ -714,7 +717,13 @@ export default function EnginePlayground() {
               </div>
             </div>
         {/* ── RIGHT: Controls ──────────────────── */}
-        <div className="flex-1 flex flex-col p-4 lg:p-5 gap-3 lg:gap-4 justify-center relative min-w-[320px]">
+        <motion.div 
+          className="flex-1 flex flex-col p-4 lg:p-5 gap-3 lg:gap-4 justify-center relative min-w-[320px]"
+          initial={{ opacity: 0, x: 20 }}
+          whileInView={{ opacity: 1, x: 0 }}
+          viewport={{ once: true }}
+          transition={{ duration: 0.6, delay: 0.2, ease: [0.22, 1, 0.36, 1] }}
+        >
           {isEditMode ? (
             /* ════════ EDIT MODE PANEL ════════ */
             <>
@@ -760,11 +769,11 @@ export default function EnginePlayground() {
                   {/* Cursor / Eraser toggle */}
                   <button
                     onClick={() => setEditTool(editTool === 'eraser' ? 'cursor' : 'eraser')}
-                    className="w-full flex items-center justify-center gap-3 py-2.5 rounded-xl border border-[#5B6EF5] transition-all cursor-pointer bg-transparent hover:bg-white/5"
+                    className="w-full flex items-center justify-center gap-3 py-2.5 rounded-xl border border-[#d4af37] transition-all cursor-pointer bg-transparent hover:bg-white/5"
                     aria-label="Toggle Eraser"
                   >
                     {/* Fake Checkbox */}
-                    <div className={`w-4 h-4 rounded-[4px] border flex items-center justify-center transition-colors ${editTool === 'eraser' ? 'bg-[#5B6EF5] border-[#5B6EF5]' : 'bg-transparent border-[#8899B4]'}`}>
+                    <div className={`w-4 h-4 rounded-[4px] border flex items-center justify-center transition-colors ${editTool === 'eraser' ? 'bg-[#d4af37] border-[#d4af37]' : 'bg-transparent border-[#a3a3a3]'}`}>
                       {editTool === 'eraser' && (
                         <svg className="w-3 h-3 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M5 13l4 4L19 7" />
@@ -772,8 +781,12 @@ export default function EnginePlayground() {
                       )}
                     </div>
                     {/* Eraser Icon */}
-                    <span className="text-[#8899B4] font-medium text-sm flex items-center gap-1.5">
-                      <span className="text-xl">⬡</span>
+                    <span className="text-[#a3a3a3] font-medium text-sm flex items-center gap-1.5">
+                      <svg xmlns="http://www.w3.org/2000/svg" className="w-5 h-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                        <path d="m7 21-4.3-4.3c-1-1-1-2.5 0-3.4l9.6-9.6c1-1 2.5-1 3.4 0l5.6 5.6c1 1 1 2.5 0 3.4L13 21" />
+                        <path d="M22 21H7" />
+                        <path d="m5 11 9 9" />
+                      </svg>
                     </span>
                   </button>
 
@@ -781,11 +794,11 @@ export default function EnginePlayground() {
                   <div className="flex gap-2">
                     <button
                       onClick={() => setEditToMove('w')}
-                      className={`flex-1 py-2 rounded-xl text-xs font-bold transition-all cursor-pointer border ${editToMove === 'w' ? 'bg-transparent text-white border-white' : 'bg-transparent text-[#8899B4] border-transparent hover:text-white/80'}`}
+                      className={`flex-1 py-2 rounded-xl text-xs font-bold transition-all cursor-pointer border ${editToMove === 'w' ? 'bg-transparent text-white border-white' : 'bg-transparent text-[#a3a3a3] border-transparent hover:text-white/80'}`}
                     >White to move</button>
                     <button
                       onClick={() => setEditToMove('b')}
-                      className={`flex-1 py-2 rounded-xl text-xs font-bold transition-all cursor-pointer border ${editToMove === 'b' ? 'bg-transparent text-white border-white' : 'bg-transparent text-[#8899B4] border-transparent hover:text-white/80'}`}
+                      className={`flex-1 py-2 rounded-xl text-xs font-bold transition-all cursor-pointer border ${editToMove === 'b' ? 'bg-transparent text-white border-white' : 'bg-transparent text-[#a3a3a3] border-transparent hover:text-white/80'}`}
                     >Black to move</button>
                   </div>
 
@@ -841,8 +854,8 @@ export default function EnginePlayground() {
                   {/* Load / Save button */}
                   <motion.button
                     onClick={saveEditPosition}
-                    className="w-full py-3 rounded-xl font-bold text-white text-sm transition-all cursor-pointer"
-                    style={{ background: 'linear-gradient(135deg, #5B6EF5, #6e63f6)' }}
+                    className="w-full py-3 rounded-xl font-bold text-white text-sm transition-all cursor-pointer relative overflow-hidden animate-shine"
+                    style={{ background: 'linear-gradient(135deg, #d4af37, #fcd34d)' }}
                     whileHover={{ scale: 1.02 }} whileTap={{ scale: 0.98 }}
                   >
                     Load
@@ -855,7 +868,7 @@ export default function EnginePlayground() {
                   <div className="flex items-center gap-2 relative">
                     {ctrlBtns.map(btn => {
                       const isActive = activeBtn === btn.id;
-                      const activeColor = btn.color ?? '#6e63f6';
+                      const activeColor = btn.color ?? '#d4af37';
                       return (
                         <motion.button
                           key={btn.id}
@@ -864,8 +877,8 @@ export default function EnginePlayground() {
                           onClick={btn.action}
                           className="flex-1 flex flex-col items-center gap-1.5 py-2.5 px-1 rounded-xl transition-all duration-200 cursor-pointer border"
                           style={{
-                            color: isActive ? activeColor : '#8899B4',
-                            borderColor: isActive ? activeColor : '#1A2744',
+                            color: isActive ? activeColor : '#a3a3a3',
+                            borderColor: isActive ? activeColor : '#2e2e2e',
                             background: isActive ? `${activeColor}18` : 'transparent',
                           }}
                           whileHover={{ scale: 1.05, color: '#fff' }}
@@ -886,8 +899,8 @@ export default function EnginePlayground() {
                           {/* Click outside overlay, fixed z-index context relative to the dropdown */}
                           <div className="fixed inset-0 z-20" onClick={() => setShowMore(false)} aria-hidden="true" />
                           <motion.div
-                            className="absolute top-full right-0 mt-2 w-44 rounded-xl border border-[#1A2744] overflow-hidden z-30"
-                            style={{ background: '#0F1C33', boxShadow: '0 12px 36px rgba(0,0,0,0.5)' }}
+                            className="absolute top-full right-0 mt-2 w-44 rounded-xl border border-[#2e2e2e] overflow-hidden z-30"
+                            style={{ background: '#1f1f1f', boxShadow: '0 12px 36px rgba(0,0,0,0.5)' }}
                             initial={{ opacity: 0, scale: 0.88, y: -8 }}
                             animate={{ opacity: 1, scale: 1, y: 0 }}
                             exit={{ opacity: 0, scale: 0.88, y: -8 }}
@@ -939,7 +952,7 @@ export default function EnginePlayground() {
                           onClick={() => setDifficulty(d)}
                           className={`flex-1 h-9 rounded-lg text-sm font-black transition-all duration-200 cursor-pointer border ${difficulty === d
                               ? 'bg-brand-accent text-white border-brand-accent shadow-lg'
-                              : 'bg-transparent text-text-muted border-[#1A2744] hover:border-brand-accent/40 hover:text-white'
+                              : 'bg-transparent text-text-muted border-[#2e2e2e] hover:border-brand-accent/40 hover:text-white'
                             }`}
                           style={difficulty === d ? { boxShadow: '0 0 14px rgba(110,99,246,0.5)' } : {}}
                           whileTap={{ scale: 0.93 }}
@@ -955,8 +968,8 @@ export default function EnginePlayground() {
                   {/* Move log */}
                   <div
                     ref={moveLogRef}
-                    className="flex-1 rounded-xl border border-[#1A2744] overflow-y-auto font-mono text-sm"
-                    style={{ background: '#090F1D', minHeight: 140, maxHeight: 260, padding: '12px' }}
+                    className="flex-1 rounded-xl border border-[#2e2e2e] overflow-y-auto font-mono text-sm"
+                    style={{ background: '#0f0f0f', minHeight: 140, maxHeight: 260, padding: '12px' }}
                     role="log"
                     aria-label="Move history"
                     aria-live="polite"
@@ -981,7 +994,7 @@ export default function EnginePlayground() {
                   </div>
                 </>
               )}
-        </div>
+        </motion.div>
       </motion.div>
     </div>
 
