@@ -9,11 +9,11 @@
  *  5. Footer        — Logo + copyright + links
  */
 
-import { HeroContainer } from './components/HeroSection';
-import SubscribersSection from './components/SubscribersSection';
-import EnginePlayground from './components/EnginePlayground';
-import ContactSection from './components/ContactSection';
-import SiteFooter from './components/SiteFooter';
+import { HeroContainer } from './features/HeroSection';
+import SubscribersSection from './features/SubscribersSection';
+import EnginePlayground from './features/EnginePlayground';
+import ContactSection from './features/ContactSection';
+import SiteFooter from './layouts/SiteFooter';
 
 function App() {
   return (
