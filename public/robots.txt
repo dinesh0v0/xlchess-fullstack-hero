@@ -3,4 +3,4 @@ Allow: /
 Disallow: /api/
 Disallow: /auth/
 
-Sitemap: https://dachess.com/sitemap.xml
+Sitemap: https://da-chess.vercel.app/sitemap.xml
