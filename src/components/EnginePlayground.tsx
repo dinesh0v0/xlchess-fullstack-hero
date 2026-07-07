@@ -21,9 +21,25 @@ type Color = 'w' | 'b';
 
 const FILES = ['a', 'b', 'c', 'd', 'e', 'f', 'g', 'h'] as const;
 
-const SYMBOLS: Record<Color, Record<string, string>> = {
-  w: { k: '♔', q: '♕', r: '♖', b: '♗', n: '♘', p: '♙' },
-  b: { k: '♚', q: '♛', r: '♜', b: '♝', n: '♞', p: '♟' },
+
+
+const PIECE_IMAGES: Record<Color, Record<string, string>> = {
+  w: {
+    k: 'https://upload.wikimedia.org/wikipedia/commons/4/42/Chess_klt45.svg',
+    q: 'https://upload.wikimedia.org/wikipedia/commons/1/15/Chess_qlt45.svg',
+    r: 'https://upload.wikimedia.org/wikipedia/commons/7/72/Chess_rlt45.svg',
+    b: 'https://upload.wikimedia.org/wikipedia/commons/b/b1/Chess_blt45.svg',
+    n: 'https://upload.wikimedia.org/wikipedia/commons/7/70/Chess_nlt45.svg',
+    p: 'https://upload.wikimedia.org/wikipedia/commons/4/45/Chess_plt45.svg',
+  },
+  b: {
+    k: 'https://upload.wikimedia.org/wikipedia/commons/f/f0/Chess_kdt45.svg',
+    q: 'https://upload.wikimedia.org/wikipedia/commons/4/47/Chess_qdt45.svg',
+    r: 'https://upload.wikimedia.org/wikipedia/commons/f/ff/Chess_rdt45.svg',
+    b: 'https://upload.wikimedia.org/wikipedia/commons/9/98/Chess_bdt45.svg',
+    n: 'https://upload.wikimedia.org/wikipedia/commons/e/ef/Chess_ndt45.svg',
+    p: 'https://upload.wikimedia.org/wikipedia/commons/c/c7/Chess_pdt45.svg',
+  },
 };
 
 const PIECE_VALUES: Record<string, number> = {
@@ -299,7 +315,9 @@ export default function EnginePlayground() {
     if (isEditMode) { handleEditClick(sq); return; }
     if (isAIThinking || gameStatus) return;
     const g = gameRef.current;
-    if (g.turn() !== 'w') return; // human plays white
+    
+    // In normal play, if it's black's turn, we wait for AI (unless it's a 2-player mode, but here human is white)
+    if (g.turn() !== 'w') return;
 
     const piece = g.get(sq as Parameters<typeof g.get>[0]);
     const isOwn = piece && piece.color === 'w';
@@ -387,7 +405,6 @@ export default function EnginePlayground() {
 
   /* ── Save (exit) Edit Mode ──────────────── */
   const saveEditPosition = useCallback(() => {
-    // Build FEN from current board + edit settings
     const g = gameRef.current;
     const rows: string[] = [];
     for (let r = 0; r < 8; r++) {
@@ -406,18 +423,49 @@ export default function EnginePlayground() {
       if (empty > 0) row += empty;
       rows.push(row);
     }
-    const castleStr = (editCastle.K ? 'K' : '') + (editCastle.Q ? 'Q' : '') + (editCastle.k ? 'k' : '') + (editCastle.q ? 'q' : '') || '-';
-    const fen = `${rows.join('/')} ${editToMove} ${castleStr} - 0 1`;
+
+    const activeColor = editToMove || 'w';
+    let castleStr = '';
+    if (editCastle.K) castleStr += 'K';
+    if (editCastle.Q) castleStr += 'Q';
+    if (editCastle.k) castleStr += 'k';
+    if (editCastle.q) castleStr += 'q';
+    if (!castleStr) castleStr = '-';
+
+    let fen = `${rows.join('/')} ${activeColor} ${castleStr} - 0 1`;
+
     try {
       gameRef.current = new Chess(fen);
-      pieceIdsRef.current = initPieceIds(gameRef.current);
-      setIsEditMode(false);
-      setSelectedSq(null); setLegalTargets([]);
-      setMoveHistory([]); setEvalScore(computeEval(gameRef.current));
-      setGameStatus(null); setHintMove(null);
-      setTick(t => t + 1);
-    } catch { /* invalid position, stay in edit mode */ }
-  }, [editToMove, editCastle]);
+    } catch {
+      fen = `${rows.join('/')} ${activeColor} - - 0 1`;
+      try {
+        gameRef.current = new Chess(fen);
+      } catch {
+        alert("Invalid board position! Ensure both kings are placed correctly and the side to move is valid.");
+        return;
+      }
+    }
+
+    pieceIdsRef.current = initPieceIds(gameRef.current);
+    setIsEditMode(false);
+    setSelectedSq(null);
+    setLegalTargets([]);
+    setMoveHistory([]);
+    setEvalScore(computeEval(gameRef.current));
+    
+    let status: string | null = null;
+    if (gameRef.current.isCheckmate()) status = gameRef.current.turn() === 'w' ? '0–1  Black wins!' : '1–0  White wins!';
+    else if (gameRef.current.isStalemate()) status = '½–½  Stalemate';
+    else if (gameRef.current.isDraw()) status = '½–½  Draw';
+    setGameStatus(status);
+    
+    setHintMove(null);
+    setTick(t => t + 1);
+
+    if (gameRef.current.turn() === 'b' && !status) {
+       setTimeout(() => triggerAI(), 100);
+    }
+  }, [editToMove, editCastle, triggerAI]);
 
 
 
@@ -485,19 +533,17 @@ export default function EnginePlayground() {
       <div className="absolute top-0 left-1/2 -translate-x-1/2 w-3/4 h-32 opacity-20 blur-3xl pointer-events-none"
         style={{ background: 'radial-gradient(ellipse, #6e63f6 0%, transparent 70%)' }} />
 
-      <div className="relative z-10 max-w-5xl mx-auto">
+      <div className="relative z-10 max-w-[960px] mx-auto">
         <motion.div
-          className="rounded-2xl overflow-hidden border border-[#1A2744]"
-          style={{ background: '#0B1628', boxShadow: '0 24px 80px rgba(0,0,0,0.6), 0 0 40px rgba(110,99,246,0.1)' }}
+          className="rounded-2xl overflow-hidden border border-[#1A2744] flex flex-col lg:flex-row w-full h-fit bg-[#0B1628]"
+          style={{ boxShadow: '0 24px 80px rgba(0,0,0,0.6), 0 0 40px rgba(110,99,246,0.1)' }}
           initial={{ opacity: 0, y: 40, scale: 0.96 }}
           whileInView={{ opacity: 1, y: 0, scale: 1 }}
           viewport={{ once: true, margin: '-60px' }}
           transition={{ duration: 0.75, ease: [0.22, 1, 0.36, 1] as [number, number, number, number] }}
         >
-          <div className="flex flex-col lg:flex-row">
-
-            {/* ── LEFT: Eval bar + Board ───────────── */}
-            <div className="flex flex-row w-full lg:w-[532px] shrink-0 mx-auto lg:mx-0">
+          {/* ── LEFT: Eval bar + Board ───────────── */}
+          <div className="flex flex-row w-full lg:w-[532px] shrink-0 border-b lg:border-b-0 lg:border-r border-[#1A2744] bg-[#090F1D]">
               {/* Eval bar */}
               <div className="flex flex-col items-center justify-between w-8 shrink-0 bg-[#090F1D] border-r border-[#1A2744] py-2 gap-1">
                 {/* Black portion */}
@@ -596,22 +642,16 @@ export default function EnginePlayground() {
                             layout: { type: 'spring', stiffness: 1100, damping: 42, mass: 0.55 },
                           }}
                         >
-                          <span
-                            style={{
-                              fontSize: 'clamp(1.1rem, 3.6vw, 2.15rem)',
-                              color: p.color === 'w' ? '#F8F8F8' : '#111111',
-                              textShadow: p.color === 'w'
-                                ? '0 0 3px rgba(0,0,0,0.95), 0 1px 0 rgba(0,0,0,0.8)'
-                                : '0 0 1px rgba(255,255,255,0.1)',
-                              ...(selectedSq === p.square
-                                ? { filter: 'brightness(1.4) drop-shadow(0 0 8px rgba(245,246,130,0.85))' }
-                                : {}),
-                              transition: 'filter 0.15s ease',
-                            }}
-                          >
-                            {SYMBOLS[p.color][p.type]}
-                          </span>
-                        </motion.div>
+                            <img 
+                              src={PIECE_IMAGES[p.color][p.type]} 
+                              alt={`${p.color} ${p.type}`}
+                              className="w-[90%] h-[90%] object-contain drop-shadow-md"
+                              style={{
+                                ...(selectedSq === p.square ? { filter: 'drop-shadow(0 0 8px rgba(245,246,130,0.85))' } : {}),
+                                transition: 'filter 0.15s ease',
+                              }}
+                            />
+                          </motion.div>
                       ))}
                     </AnimatePresence>
                   </LayoutGroup>
@@ -673,90 +713,100 @@ export default function EnginePlayground() {
                 </div>
               </div>
             </div>
+        {/* ── RIGHT: Controls ──────────────────── */}
+        <div className="flex-1 flex flex-col p-4 lg:p-5 gap-3 lg:gap-4 justify-center relative min-w-[320px]">
+          {isEditMode ? (
+            /* ════════ EDIT MODE PANEL ════════ */
+            <>
+              {/* Close button */}
+              <button
+                onClick={() => setIsEditMode(false)}
+                className="absolute top-3 right-3 text-text-muted hover:text-white text-lg leading-none transition-colors cursor-pointer z-10"
+                aria-label="Close edit mode"
+              >✕</button>
 
-            {/* ── RIGHT: Controls ──────────────────── */}
-            <div className="flex-1 flex flex-col p-5 gap-4 border-t lg:border-t-0 lg:border-l border-[#1A2744] min-w-[220px] relative">
-
-              {isEditMode ? (
-                /* ════════ EDIT MODE PANEL ════════ */
-                <>
-                  {/* Close button */}
-                  <button
-                    onClick={() => setIsEditMode(false)}
-                    className="absolute top-3 right-3 text-text-muted hover:text-white text-lg leading-none transition-colors cursor-pointer z-10"
-                    aria-label="Close edit mode"
-                  >✕</button>
-
-                  {/* White pieces palette */}
-                  <div className="flex gap-1.5 flex-wrap">
+              {/* White pieces palette */}
+              <div className="flex justify-between w-full">
                     {EDIT_W.map(p => {
                       const isActive = typeof editTool === 'object' && editTool.color === 'w' && editTool.type === p.type;
                       return (
                         <button
                           key={p.sym}
                           onClick={() => setEditTool({ color: 'w', type: p.type })}
-                          className={`w-10 h-10 rounded-lg text-xl flex items-center justify-center transition-all cursor-pointer border ${isActive ? 'bg-brand-accent/20 border-brand-accent text-white' : 'bg-brand-surface border-brand-border hover:border-brand-accent/50 text-white/80'}`}
-                        >{p.sym}</button>
+                          className={`w-10 h-10 rounded-lg flex items-center justify-center transition-all cursor-pointer border ${isActive ? 'bg-white/10 border-white' : 'bg-transparent border-transparent hover:border-white/30'}`}
+                        >
+                          <img src={PIECE_IMAGES['w'][p.type]} alt={`w ${p.type}`} className="w-8 h-8 object-contain drop-shadow-md" />
+                        </button>
                       );
                     })}
                   </div>
 
                   {/* Black pieces palette */}
-                  <div className="flex gap-1.5 flex-wrap">
+                  <div className="flex justify-between w-full">
                     {EDIT_B.map(p => {
                       const isActive = typeof editTool === 'object' && editTool.color === 'b' && editTool.type === p.type;
                       return (
                         <button
                           key={p.sym}
                           onClick={() => setEditTool({ color: 'b', type: p.type })}
-                          className={`w-10 h-10 rounded-lg text-xl flex items-center justify-center transition-all cursor-pointer border ${isActive ? 'bg-brand-accent/20 border-brand-accent text-white' : 'bg-brand-surface border-brand-border hover:border-brand-accent/50 text-white/80'}`}
-                        >{p.sym}</button>
+                          className={`w-10 h-10 rounded-lg flex items-center justify-center transition-all cursor-pointer border ${isActive ? 'bg-white/10 border-white' : 'bg-transparent border-transparent hover:border-white/30'}`}
+                        >
+                          <img src={PIECE_IMAGES['b'][p.type]} alt={`b ${p.type}`} className="w-8 h-8 object-contain drop-shadow-md" />
+                        </button>
                       );
                     })}
                   </div>
 
                   {/* Cursor / Eraser toggle */}
-                  <div className="flex gap-2">
-                    <button
-                      onClick={() => setEditTool('cursor')}
-                      className={`flex-1 py-2 rounded-lg text-sm font-semibold transition-all cursor-pointer border ${editTool === 'cursor' ? 'bg-brand-accent/20 border-brand-accent text-white' : 'bg-brand-surface border-brand-border text-text-muted hover:border-brand-accent/40'}`}
-                    >☝ Cursor</button>
-                    <button
-                      onClick={() => setEditTool('eraser')}
-                      className={`flex-1 py-2 rounded-lg text-sm font-semibold transition-all cursor-pointer border ${editTool === 'eraser' ? 'bg-red-500/20 border-red-500 text-red-400' : 'bg-brand-surface border-brand-border text-text-muted hover:border-red-500/40'}`}
-                    >◇ Eraser</button>
-                  </div>
+                  <button
+                    onClick={() => setEditTool(editTool === 'eraser' ? 'cursor' : 'eraser')}
+                    className="w-full flex items-center justify-center gap-3 py-2.5 rounded-xl border border-[#5B6EF5] transition-all cursor-pointer bg-transparent hover:bg-white/5"
+                    aria-label="Toggle Eraser"
+                  >
+                    {/* Fake Checkbox */}
+                    <div className={`w-4 h-4 rounded-[4px] border flex items-center justify-center transition-colors ${editTool === 'eraser' ? 'bg-[#5B6EF5] border-[#5B6EF5]' : 'bg-transparent border-[#8899B4]'}`}>
+                      {editTool === 'eraser' && (
+                        <svg className="w-3 h-3 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M5 13l4 4L19 7" />
+                        </svg>
+                      )}
+                    </div>
+                    {/* Eraser Icon */}
+                    <span className="text-[#8899B4] font-medium text-sm flex items-center gap-1.5">
+                      <span className="text-xl">⬡</span>
+                    </span>
+                  </button>
 
                   {/* Side to move */}
                   <div className="flex gap-2">
                     <button
                       onClick={() => setEditToMove('w')}
-                      className={`flex-1 py-2.5 rounded-xl text-sm font-bold transition-all cursor-pointer ${editToMove === 'w' ? 'bg-brand-accent text-white' : 'bg-brand-surface text-text-muted border border-brand-border hover:border-brand-accent/40'}`}
+                      className={`flex-1 py-2 rounded-xl text-xs font-bold transition-all cursor-pointer border ${editToMove === 'w' ? 'bg-transparent text-white border-white' : 'bg-transparent text-[#8899B4] border-transparent hover:text-white/80'}`}
                     >White to move</button>
                     <button
                       onClick={() => setEditToMove('b')}
-                      className={`flex-1 py-2.5 rounded-xl text-sm font-bold transition-all cursor-pointer ${editToMove === 'b' ? 'bg-brand-accent text-white' : 'bg-brand-surface text-text-muted border border-brand-border hover:border-brand-accent/40'}`}
+                      className={`flex-1 py-2 rounded-xl text-xs font-bold transition-all cursor-pointer border ${editToMove === 'b' ? 'bg-transparent text-white border-white' : 'bg-transparent text-[#8899B4] border-transparent hover:text-white/80'}`}
                     >Black to move</button>
                   </div>
 
                   {/* Castling rights */}
-                  <div className="flex gap-6">
-                    <div>
+                  <div className="flex justify-between w-full mt-1">
+                    <div className="flex flex-col gap-1.5">
                       <p className="text-[0.65rem] font-bold text-text-muted uppercase tracking-wider mb-1">White</p>
                       <label className="flex items-center gap-1.5 text-xs text-text-secondary cursor-pointer">
-                        <input type="checkbox" checked={editCastle.K} onChange={e => setEditCastle(c => ({ ...c, K: e.target.checked }))} className="accent-brand-accent" /> (O-O)
+                        <input type="checkbox" checked={editCastle.K} onChange={e => setEditCastle(c => ({ ...c, K: e.target.checked }))} className="accent-brand-accent w-3.5 h-3.5 rounded border-gray-600" /> (O-O)
                       </label>
                       <label className="flex items-center gap-1.5 text-xs text-text-secondary cursor-pointer">
-                        <input type="checkbox" checked={editCastle.Q} onChange={e => setEditCastle(c => ({ ...c, Q: e.target.checked }))} className="accent-brand-accent" /> (O-O-O)
+                        <input type="checkbox" checked={editCastle.Q} onChange={e => setEditCastle(c => ({ ...c, Q: e.target.checked }))} className="accent-brand-accent w-3.5 h-3.5 rounded border-gray-600" /> (O-O-O)
                       </label>
                     </div>
-                    <div>
+                    <div className="flex flex-col gap-1.5 mr-6">
                       <p className="text-[0.65rem] font-bold text-text-muted uppercase tracking-wider mb-1">Black</p>
                       <label className="flex items-center gap-1.5 text-xs text-text-secondary cursor-pointer">
-                        <input type="checkbox" checked={editCastle.k} onChange={e => setEditCastle(c => ({ ...c, k: e.target.checked }))} className="accent-brand-accent" /> (O-O)
+                        <input type="checkbox" checked={editCastle.k} onChange={e => setEditCastle(c => ({ ...c, k: e.target.checked }))} className="accent-brand-accent w-3.5 h-3.5 rounded border-gray-600" /> (O-O)
                       </label>
                       <label className="flex items-center gap-1.5 text-xs text-text-secondary cursor-pointer">
-                        <input type="checkbox" checked={editCastle.q} onChange={e => setEditCastle(c => ({ ...c, q: e.target.checked }))} className="accent-brand-accent" /> (O-O-O)
+                        <input type="checkbox" checked={editCastle.q} onChange={e => setEditCastle(c => ({ ...c, q: e.target.checked }))} className="accent-brand-accent w-3.5 h-3.5 rounded border-gray-600" /> (O-O-O)
                       </label>
                     </div>
                   </div>
@@ -774,8 +824,9 @@ export default function EnginePlayground() {
                   <div className="flex flex-col gap-1.5">
                     {[
                       { icon: '🗑', label: 'Clear', action: () => handleLoadPosition('8/8/8/8/8/8/8/8 w - - 0 1') },
-                      { icon: '♟', label: 'Starting Position', action: () => handleLoadPosition(STARTING_FEN) },
-                      { icon: '⇄', label: 'Shuffle', action: () => handleLoadPosition(generateChess960FEN()) },
+                      { icon: '🏠', label: 'Starting Position', action: () => handleLoadPosition(STARTING_FEN) },
+                      { icon: '🔀', label: 'Shuffle', action: () => handleLoadPosition(generateChess960FEN()) },
+                      { icon: '↕️', label: 'Switch Sides', action: () => setEditToMove(editToMove === 'w' ? 'b' : 'w') },
                     ].map(item => (
                       <button
                         key={item.label}
@@ -831,34 +882,46 @@ export default function EnginePlayground() {
                     {/* "More" dropdown */}
                     <AnimatePresence>
                       {showMore && (
-                        <motion.div
-                          className="absolute top-full right-0 mt-2 w-44 rounded-xl border border-[#1A2744] overflow-hidden z-30"
-                          style={{ background: '#0F1C33', boxShadow: '0 12px 36px rgba(0,0,0,0.5)' }}
-                          initial={{ opacity: 0, scale: 0.88, y: -8 }}
-                          animate={{ opacity: 1, scale: 1, y: 0 }}
-                          exit={{ opacity: 0, scale: 0.88, y: -8 }}
-                          transition={{ type: 'spring', stiffness: 500, damping: 30 }}
-                        >
-                          {[
-                            {
-                              icon: '⇄', label: 'Chess960',
-                              action: () => { setShowMore(false); handleChess960(); },
-                            },
-                            {
-                              icon: '✏️', label: 'Edit Position',
-                              action: () => { setShowMore(false); enterEditMode(); },
-                            },
-                          ].map(item => (
-                            <button
-                              key={item.label}
-                              onClick={item.action}
-                              className="w-full flex items-center gap-3 px-4 py-3 text-sm text-text-secondary hover:text-white hover:bg-white/5 transition-all cursor-pointer text-left"
-                            >
-                              <span>{item.icon}</span>
-                              <span>{item.label}</span>
-                            </button>
-                          ))}
-                        </motion.div>
+                        <>
+                          {/* Click outside overlay, fixed z-index context relative to the dropdown */}
+                          <div className="fixed inset-0 z-20" onClick={() => setShowMore(false)} aria-hidden="true" />
+                          <motion.div
+                            className="absolute top-full right-0 mt-2 w-44 rounded-xl border border-[#1A2744] overflow-hidden z-30"
+                            style={{ background: '#0F1C33', boxShadow: '0 12px 36px rgba(0,0,0,0.5)' }}
+                            initial={{ opacity: 0, scale: 0.88, y: -8 }}
+                            animate={{ opacity: 1, scale: 1, y: 0 }}
+                            exit={{ opacity: 0, scale: 0.88, y: -8 }}
+                            transition={{ type: 'spring', stiffness: 500, damping: 30 }}
+                          >
+                            {[
+                              {
+                                icon: '⇄', label: 'Chess960',
+                                action: () => { 
+                                  console.log("Chess960 clicked");
+                                  setShowMore(false); 
+                                  handleChess960(); 
+                                },
+                              },
+                              {
+                                icon: '✏️', label: 'Edit Position',
+                                action: () => { 
+                                  console.log("Edit Position clicked");
+                                  setShowMore(false); 
+                                  enterEditMode(); 
+                                },
+                              },
+                            ].map(item => (
+                              <button
+                                key={item.label}
+                                onClick={item.action}
+                                className="w-full flex items-center gap-3 px-4 py-3 text-sm text-text-secondary hover:text-white hover:bg-white/5 transition-all cursor-pointer text-left relative z-40"
+                              >
+                                <span>{item.icon}</span>
+                                <span>{item.label}</span>
+                              </button>
+                            ))}
+                          </motion.div>
+                        </>
                       )}
                     </AnimatePresence>
                   </div>
@@ -918,15 +981,11 @@ export default function EnginePlayground() {
                   </div>
                 </>
               )}
-            </div>
-          </div>
-        </motion.div>
-      </div>
+        </div>
+      </motion.div>
+    </div>
 
-      {/* Click outside to close More menu */}
-      {showMore && (
-        <div className="fixed inset-0 z-20" onClick={() => setShowMore(false)} aria-hidden="true" />
-      )}
+
     </section>
   );
 }

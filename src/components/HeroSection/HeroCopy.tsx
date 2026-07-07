@@ -39,15 +39,15 @@ const HeroCopy = memo(function HeroCopy() {
         {/* Custom Image Logo */}
         <img
           src={customLogo}
-          alt="DAChess Logo"
+          alt="DAChess King Logo - Premium Online Chess Platform"
           className="w-32 sm:w-40 mb-2 rounded-xl shadow-lg"
         />
 
         {/* Brand text */}
         <div className="flex flex-col items-start">
-          <h2 className="text-2xl sm:text-3xl font-black tracking-[0.15em] text-white uppercase leading-none">
+          <div className="text-2xl sm:text-3xl font-black tracking-[0.15em] text-white uppercase leading-none">
             DACHESS
-          </h2>
+          </div>
           <div className="flex items-center gap-2 mt-1">
             <div className="w-6 h-[1.5px] bg-text-muted" />
             <span className="text-[0.65rem] font-medium tracking-[0.2em] text-text-muted uppercase">
