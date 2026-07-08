@@ -577,7 +577,6 @@ export default function EnginePlayground() {
                       const isFrom = lastMove?.from === sq;
                       const isTo = lastMove?.to === sq;
                       const isSel = selectedSq === sq;
-                      const isLegal = legalTargets.includes(sq);
                       const isHFrom = hintMove?.from === sq;
                       const isHTo = hintMove?.to === sq;
                       const pHere = gameRef.current.get(sq as Parameters<typeof gameRef.current.get>[0]);
@@ -609,15 +608,7 @@ export default function EnginePlayground() {
                               {FILES[col]}
                             </span>
                           )}
-                          {/* Legal move: breathing amber glow */}
-                          {isLegal && !pHere && (
-                            <div className="absolute inset-0 flex items-center justify-center pointer-events-none opacity-60">
-                              <div className="w-1/2 h-1/2 rounded-full animate-pulse" style={{ background: 'radial-gradient(circle, #d4af37 0%, transparent 70%)' }} />
-                            </div>
-                          )}
-                          {isLegal && pHere && pHere.color !== 'w' && (
-                            <div className="absolute inset-0 rounded-[1px] ring-[5px] ring-inset ring-[#d4af37]/60 animate-pulse pointer-events-none" />
-                          )}
+
                           {/* Landing ripple */}
                           {isTo && (
                             <div key={`ripple-${tick}`} className="absolute inset-0 rounded-full animate-ripple pointer-events-none" />
@@ -658,6 +649,42 @@ export default function EnginePlayground() {
                       ))}
                     </AnimatePresence>
                   </LayoutGroup>
+
+                  {/* Legal-move overlay — rendered ABOVE pieces (z-20) so dots/rings are always visible */}
+                  {legalTargets.length > 0 && (
+                    <div className="absolute inset-0 grid grid-cols-8 pointer-events-none z-20">
+                      {boardSquares.map(({ sq }) => {
+                        const isLegal = legalTargets.includes(sq);
+                        if (!isLegal) return <div key={sq} />;
+                        const pHere = gameRef.current.get(sq as Parameters<typeof gameRef.current.get>[0]);
+                        const isCapture = pHere && pHere.color !== 'w';
+                        return (
+                          <div key={sq} className="relative">
+                            {isCapture ? (
+                              /* Capture ring — thick visible border on top of enemy piece */
+                              <div
+                                className="absolute inset-[3px] rounded-full border-[4px] border-[#d4af37]/70"
+                                style={{ boxShadow: 'inset 0 0 6px rgba(212,175,55,0.3)' }}
+                              />
+                            ) : (
+                              /* Move dot — solid, clearly visible indicator */
+                              <div className="absolute inset-0 flex items-center justify-center">
+                                <div
+                                  className="rounded-full"
+                                  style={{
+                                    width: '30%',
+                                    height: '30%',
+                                    backgroundColor: 'rgba(212, 175, 55, 0.45)',
+                                    boxShadow: '0 0 6px 1px rgba(212,175,55,0.25)',
+                                  }}
+                                />
+                              </div>
+                            )}
+                          </div>
+                        );
+                      })}
+                    </div>
+                  )}
 
                   {/* Game over overlay */}
                   <AnimatePresence>

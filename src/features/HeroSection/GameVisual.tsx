@@ -1,9 +1,9 @@
 /**
  * GameVisual — Hero section right column.
  *
- * Phase 1 (Autoplay): Replays The Evergreen Game (moves 15-20) automatically
+ * Phase 1 (Autoplay): Replays random famous game automatically
  *   with smooth Framer Motion piece animations.
- * Phase 2 (Puzzle):   Shows the final 4-move puzzle position, board becomes
+ * Phase 2 (Puzzle):   Shows the final puzzle position, board becomes
  *   interactive. User plays White to deliver checkmate.
  */
 
@@ -20,26 +20,56 @@ const PIECE_SYMBOLS: Record<string, Record<string, string>> = {
   b: { k: '♚', q: '♛', r: '♜', b: '♝', n: '♞', p: '♟' },
 };
 
-// Evergreen Game — Anderssen vs Dufresne, 1852
-// Full move list in SAN
-const EVERGREEN_MOVES = [
-  'e4','e5','Nf3','Nc6','Bc4','Bc5','b4','Bxb4','c3','Ba5',
-  'd4','exd4','O-O','d3','Qb3','Qf6','e5','Qg6','Re1','Nge7',
-  'Ba3','b5','Qxb5','Rb8','Qa4','Bb6','Nbd2','Bb7','Ne4','Qf5',
-  'Bxd3','Qh5','Nf6+','gxf6','exf6','Rg8','Rad1','Qxf3',
-  // Rxe7+ Nxe7 → puzzle start position (White to play Qxd7+)
-  'Rxe7+','Nxe7',
-  // Puzzle solution moves (user plays white):
-  'Qxd7+','Kxd7','Bf5+','Ke8','Bd7+','Kf8','Bxe7#',
+type GameData = {
+  id: string;
+  title: string;
+  subtitle: string;
+  puzzleText: string;
+  moves: string[];
+  autoplayStart: number;
+  puzzleStart: number;
+  puzzleMovesLeft: number;
+};
+
+const GAMES: GameData[] = [
+  {
+    id: 'evergreen',
+    title: 'The Evergreen Game',
+    subtitle: 'Anderssen vs Dufresne, 1852',
+    puzzleText: 'Can you finish the Evergreen Game?',
+    moves: ['e4','e5','Nf3','Nc6','Bc4','Bc5','b4','Bxb4','c3','Ba5','d4','exd4','O-O','d3','Qb3','Qf6','e5','Qg6','Re1','Nge7','Ba3','b5','Qxb5','Rb8','Qa4','Bb6','Nbd2','Bb7','Ne4','Qf5','Bxd3','Qh5','Nf6+','gxf6','exf6','Rg8','Rad1','Qxf3','Rxe7+','Nxe7','Qxd7+','Kxd7','Bf5+','Ke8','Bd7+','Kf8','Bxe7#'],
+    autoplayStart: 28,
+    puzzleStart: 40,
+    puzzleMovesLeft: 4
+  },
+  {
+    id: 'opera',
+    title: 'The Opera Game',
+    subtitle: 'Morphy vs Duke of Brunswick, 1858',
+    puzzleText: 'Can you finish the Opera Game?',
+    moves: ['e4','e5','Nf3','d6','d4','Bg4','dxe5','Bxf3','Qxf3','dxe5','Bc4','Nf6','Qb3','Qe7','Nc3','c6','Bg5','b5','Nxb5','cxb5','Bxb5+','Nbd7','O-O-O','Rd8','Rxd7','Rxd7','Rd1','Qe6','Bxd7+','Nxd7','Qb8+','Nxb8','Rd8#'],
+    autoplayStart: 20,
+    puzzleStart: 28,
+    puzzleMovesLeft: 3
+  },
+  {
+    id: 'immortal',
+    title: 'The Immortal Game',
+    subtitle: 'Anderssen vs Kieseritzky, 1851',
+    puzzleText: 'Can you finish the Immortal Game?',
+    moves: ['e4','e5','f4','exf4','Bc4','Qh4+','Kf1','b5','Bxb5','Nf6','Nf3','Qh6','d3','Nh5','Nh4','Qg5','Nf5','c6','g4','Nf6','Rg1','cxb5','h4','Qg6','h5','Qg5','Qf3','Ng8','Bxf4','Qf6','Nc3','Bc5','Nd5','Qxb2','Bd6','Bxg1','e5','Qxa1+','Ke2','Na6','Nxg7+','Kd8','Qf6+','Nxf6','Be7#'],
+    autoplayStart: 32,
+    puzzleStart: 40,
+    puzzleMovesLeft: 3
+  }
 ];
 
-// Precompute positions list
-function buildPositions() {
+function buildPositions(moves: string[]) {
   const g = new Chess();
   const list: Array<{ fen: string; lastMove: { from: string; to: string } | null }> = [
     { fen: g.fen(), lastMove: null },
   ];
-  for (const san of EVERGREEN_MOVES) {
+  for (const san of moves) {
     try {
       const m = g.move(san);
       list.push({ fen: g.fen(), lastMove: { from: m.from, to: m.to } });
@@ -48,11 +78,10 @@ function buildPositions() {
   return list;
 }
 
-const ALL_POSITIONS = buildPositions();
-// Autoplay starts at index 28 (after move 14 — Ne4/Qf5 sequence begins)
-const AUTOPLAY_START = 28;
-// Puzzle position index = 40 (after Rxe7+ Nxe7)
-const PUZZLE_START = 40;
+const GAME_POSITIONS = GAMES.reduce((acc, game) => {
+  acc[game.id] = buildPositions(game.moves);
+  return acc;
+}, {} as Record<string, ReturnType<typeof buildPositions>>);
 
 /* ─── Piece ID tracker ───────────────────────────── */
 
@@ -119,18 +148,25 @@ function getPieces(game: Chess, ids: Map<string, string>): PieceCell[] {
 /* ─── Main Component ─────────────────────────────── */
 
 const GameVisual = memo(function GameVisual() {
+  const [activeGameId, setActiveGameId] = useState<string>(() => {
+    return GAMES[Math.floor(Math.random() * GAMES.length)].id;
+  });
+
+  const activeGame = useMemo(() => GAMES.find(g => g.id === activeGameId)!, [activeGameId]);
+  const positions = useMemo(() => GAME_POSITIONS[activeGame.id], [activeGame.id]);
+
   // ── Autoplay state
-  const [, setPosIdx] = useState(AUTOPLAY_START);
+  const [, setPosIdx] = useState(activeGame.autoplayStart);
   const [mode, setMode] = useState<'autoplay' | 'puzzle'>('autoplay');
-  const [movesLeft, setMovesLeft] = useState(4);
+  const [movesLeft, setMovesLeft] = useState(activeGame.puzzleMovesLeft);
   const [puzzleOver, setPuzzleOver] = useState(false);
 
   // ── Game ref — driven by posIdx in autoplay, interactive in puzzle
-  const gameRef = useRef<Chess>(new Chess(ALL_POSITIONS[AUTOPLAY_START].fen));
+  const gameRef = useRef<Chess>(new Chess(positions[activeGame.autoplayStart].fen));
   const pieceIdsRef = useRef<Map<string, string>>(initIds(gameRef.current));
   const [tick, setTick] = useState(0);
   const [lastMove, setLastMove] = useState<{ from: string; to: string } | null>(
-    ALL_POSITIONS[AUTOPLAY_START].lastMove,
+    positions[activeGame.autoplayStart].lastMove,
   );
 
   // ── Puzzle interaction
@@ -149,22 +185,22 @@ const GameVisual = memo(function GameVisual() {
     intervalRef.current = setInterval(() => {
       setPosIdx(prev => {
         const next = prev + 1;
-        if (next >= PUZZLE_START) {
+        if (next >= activeGame.puzzleStart) {
           stopAutoplay();
           // Load puzzle position
-          const puzzleGame = new Chess(ALL_POSITIONS[PUZZLE_START].fen);
+          const puzzleGame = new Chess(positions[activeGame.puzzleStart].fen);
           gameRef.current = puzzleGame;
           pieceIdsRef.current = initIds(puzzleGame);
-          setLastMove(ALL_POSITIONS[PUZZLE_START].lastMove);
+          setLastMove(positions[activeGame.puzzleStart].lastMove);
           setTick(t => t + 1);
           setTimeout(() => setMode('puzzle'), 200);
-          return PUZZLE_START;
+          return activeGame.puzzleStart;
         }
         // Advance game
-        const pos = ALL_POSITIONS[next];
-        const newGame = new Chess(ALL_POSITIONS[prev].fen);
+        const pos = positions[next];
+        const newGame = new Chess(positions[prev].fen);
         try {
-          const san = EVERGREEN_MOVES[prev - 1]; // the move from prev→next
+          const san = activeGame.moves[prev]; // Fix off-by-one
           const m = newGame.move(san);
           if (m) {
             applyMoveToIds(pieceIdsRef.current, {
@@ -178,12 +214,28 @@ const GameVisual = memo(function GameVisual() {
         return next;
       });
     }, 1600);
-  }, [stopAutoplay]);
+  }, [stopAutoplay, activeGame, positions]);
 
+  // Restart autoplay when activeGame changes
   useEffect(() => {
-    startAutoplay();
-    return stopAutoplay;
-  }, [startAutoplay, stopAutoplay]);
+    const g = new Chess(positions[activeGame.autoplayStart].fen);
+    gameRef.current = g;
+    pieceIdsRef.current = initIds(g);
+    setPosIdx(activeGame.autoplayStart);
+    setMode('autoplay');
+    setMovesLeft(activeGame.puzzleMovesLeft);
+    setPuzzleOver(false);
+    setLastMove(positions[activeGame.autoplayStart].lastMove);
+    setSelectedSq(null);
+    setLegalTargets([]);
+    setTick(t => t + 1);
+    
+    const timer = setTimeout(startAutoplay, 400);
+    return () => {
+      clearTimeout(timer);
+      stopAutoplay();
+    };
+  }, [activeGame, positions, startAutoplay, stopAutoplay]);
 
   // ── Puzzle square click
   const handlePuzzleClick = useCallback((sq: string) => {
@@ -225,28 +277,22 @@ const GameVisual = memo(function GameVisual() {
 
   // ── Reset puzzle
   const handleReset = useCallback(() => {
-    const g = new Chess(ALL_POSITIONS[PUZZLE_START].fen);
+    const g = new Chess(positions[activeGame.puzzleStart].fen);
     gameRef.current = g;
     pieceIdsRef.current = initIds(g);
-    setLastMove(ALL_POSITIONS[PUZZLE_START].lastMove);
+    setLastMove(positions[activeGame.puzzleStart].lastMove);
     setTick(t => t + 1);
     setSelectedSq(null); setLegalTargets([]);
-    setMovesLeft(4); setPuzzleOver(false);
-  }, []);
+    setMovesLeft(activeGame.puzzleMovesLeft); setPuzzleOver(false);
+  }, [activeGame, positions]);
 
-  // ── Replay full game
-  const handleReplay = useCallback(() => {
-    const g = new Chess(ALL_POSITIONS[AUTOPLAY_START].fen);
-    gameRef.current = g;
-    pieceIdsRef.current = initIds(g);
-    setLastMove(null);
-    setTick(t => t + 1);
-    setPosIdx(AUTOPLAY_START);
-    setMode('autoplay');
-    setMovesLeft(4); setPuzzleOver(false);
-    setSelectedSq(null); setLegalTargets([]);
-    setTimeout(startAutoplay, 400);
-  }, [startAutoplay]);
+  // ── Play Another Game
+  const handleNextGame = useCallback(() => {
+    let nextGames = GAMES.filter(g => g.id !== activeGameId);
+    if (nextGames.length === 0) nextGames = GAMES;
+    const nextGame = nextGames[Math.floor(Math.random() * nextGames.length)];
+    setActiveGameId(nextGame.id);
+  }, [activeGameId]);
 
   // ── Derive pieces list
   const pieces = useMemo(() => getPieces(gameRef.current, pieceIdsRef.current),
@@ -403,10 +449,10 @@ const GameVisual = memo(function GameVisual() {
             >
               <div>
                 <p className="text-[0.6rem] font-semibold tracking-[0.18em] text-text-muted uppercase">
-                  The Evergreen Game
+                  {activeGame.title}
                 </p>
                 <p className="text-sm font-semibold text-white mt-0.5">
-                  Anderssen vs Dufresne, 1852
+                  {activeGame.subtitle}
                 </p>
               </div>
               <div className="flex flex-col items-center border border-brand-accent/40 rounded-lg px-3 py-1.5 min-w-[56px]">
@@ -434,7 +480,7 @@ const GameVisual = memo(function GameVisual() {
             >
               <div>
                 <p className="text-[0.6rem] font-semibold tracking-[0.15em] text-text-muted uppercase">
-                  Can you finish the Evergreen Game?
+                  {activeGame.puzzleText}
                 </p>
                 <p className="text-sm font-semibold text-white mt-0.5">White to move.</p>
               </div>
@@ -497,14 +543,14 @@ const GameVisual = memo(function GameVisual() {
                 Reset Puzzle
               </motion.button>
               <motion.button
-                onClick={handleReplay}
+                onClick={handleNextGame}
                 className="flex-1 flex items-center justify-center gap-1.5 py-2 rounded-lg border border-brand-border hover:border-brand-accent/40 text-text-secondary hover:text-white text-xs font-semibold transition-all cursor-pointer"
                 whileHover={{ scale: 1.02 }} whileTap={{ scale: 0.97 }}
               >
                 <svg className="w-3.5 h-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round">
                   <polygon points="5 3 19 12 5 21 5 3" />
                 </svg>
-                Replay Full Game
+                Play Another Game
               </motion.button>
             </motion.div>
           )}
