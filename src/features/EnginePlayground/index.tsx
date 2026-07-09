@@ -69,33 +69,14 @@ function computeEval(game: Chess): number {
   return Math.round(s * 10) / 10;
 }
 
-function getAIMove(game: Chess, diff: number): string | null {
-  const moves = game.moves({ verbose: true }) as Array<{
-    san: string; captured?: string; to: string;
-  }>;
-  if (!moves.length) return null;
-
-  if (diff <= 2) {
-    return moves[Math.floor(Math.random() * moves.length)].san;
-  }
-
-  // Greedy: prefer best capture
-  const captures = moves.filter(m => m.captured);
-  if (captures.length && Math.random() > 0.15) {
-    captures.sort((a, b) => (PIECE_VALUES[b.captured!] ?? 0) - (PIECE_VALUES[a.captured!] ?? 0));
-    return captures[0].san;
-  }
-
-  // Mild center preference for higher difficulty
-  if (diff >= 4) {
-    const center = moves.filter(m => ['e4', 'e5', 'd4', 'd5', 'c4', 'c5', 'f4', 'f5'].includes(m.to));
-    if (center.length && Math.random() > 0.5) {
-      return center[Math.floor(Math.random() * center.length)].san;
-    }
-  }
-
-  return moves[Math.floor(Math.random() * moves.length)].san;
-}
+const STOCKFISH_LEVELS = [
+  { skill: 0, depth: 1 },  // placeholder for 0
+  { skill: 0, depth: 1 },  // Level 1: Beginner
+  { skill: 3, depth: 3 },  // Level 2: Easy
+  { skill: 7, depth: 5 },  // Level 3: Intermediate
+  { skill: 12, depth: 10 }, // Level 4: Advanced
+  { skill: 20, depth: 15 }, // Level 5: Master
+];
 
 /* ─── Piece-ID tracker ───────────────────────────── */
 
@@ -172,6 +153,16 @@ export default function EnginePlayground() {
   /* ── Game refs ───────────────────────────── */
   const gameRef = useRef(new Chess());
   const pieceIdsRef = useRef(initPieceIds(gameRef.current));
+  const engineRef = useRef<Worker | null>(null);
+
+  /* ── Initialize Stockfish ────────────────── */
+  useEffect(() => {
+    engineRef.current = new Worker('/stockfish.js');
+    engineRef.current.postMessage('uci');
+    return () => {
+      engineRef.current?.terminate();
+    };
+  }, []);
 
   /* ── UI state ────────────────────────────── */
   const [tick, setTick] = useState(0);
@@ -179,6 +170,7 @@ export default function EnginePlayground() {
   const [legalTargets, setLegalTargets] = useState<string[]>([]);
   const [lastMove, setLastMove] = useState<{ from: string; to: string } | null>(null);
   const [difficulty, setDifficulty] = useState(3);
+  const [boardOrientation, setBoardOrientation] = useState<'white' | 'black'>('white');
   const [evalScore, setEvalScore] = useState(0);
   const [moveHistory, setMoveHistory] = useState<{ n: number; w: string; b: string | null }[]>([]);
   const [isAIThinking, setIsAIThinking] = useState(false);
@@ -205,17 +197,19 @@ export default function EnginePlayground() {
       for (let c = 0; c < 8; c++) {
         const p = board[r][c];
         if (p) {
+          const visualRow = boardOrientation === 'black' ? 7 - r : r;
+          const visualCol = boardOrientation === 'black' ? 7 - c : c;
           out.push({
             id: pieceIdsRef.current.get(p.square) ?? p.square,
             color: p.color as Color, type: p.type,
-            square: p.square, row: r, col: c,
+            square: p.square, row: visualRow, col: visualCol,
           });
         }
       }
     }
     return out;
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [tick]);
+  }, [tick, boardOrientation]);
 
   /* ── Sync state after move ───────────────── */
   const syncAfterMove = useCallback(() => {
@@ -256,26 +250,46 @@ export default function EnginePlayground() {
 
   /* ── Trigger AI response ─────────────────── */
   const triggerAI = useCallback(() => {
-    if (gameRef.current.isGameOver() || gameRef.current.turn() !== 'b') return;
+    if (gameRef.current.isGameOver()) return;
+    const engine = engineRef.current;
+    if (!engine) return;
+
     setIsAIThinking(true);
 
-    const delay = 280 + Math.random() * 520;
-    setTimeout(() => {
-      const san = getAIMove(gameRef.current, difficulty);
-      if (san && !gameRef.current.isGameOver()) {
-        let mv: ReturnType<typeof gameRef.current.move> | null = null;
-        try { mv = gameRef.current.move(san); } catch { /* */ }
-        if (mv) {
-          applyMoveIds(pieceIdsRef.current, {
-            from: mv.from, to: mv.to, flags: mv.flags, color: mv.color,
-          });
-          setLastMove({ from: mv.from, to: mv.to });
-          setTick(t => t + 1);
-          syncAfterMove();
+    const { skill, depth } = STOCKFISH_LEVELS[difficulty];
+    engine.postMessage(`setoption name Skill Level value ${skill}`);
+    engine.postMessage(`position fen ${gameRef.current.fen()}`);
+    engine.postMessage(`go depth ${depth}`);
+
+    const onMessage = (e: MessageEvent) => {
+      const msg = e.data;
+      if (typeof msg === 'string' && msg.startsWith('bestmove')) {
+        const match = msg.match(/^bestmove\s+([a-h][1-8][a-h][1-8][qrbn]?)/);
+        if (match && match[1]) {
+          const moveStr = match[1];
+          engine.removeEventListener('message', onMessage);
+          
+          if (!gameRef.current.isGameOver()) {
+            let mv: ReturnType<typeof gameRef.current.move> | null = null;
+            try { mv = gameRef.current.move(moveStr); } catch { /* */ }
+            if (mv) {
+              applyMoveIds(pieceIdsRef.current, {
+                from: mv.from, to: mv.to, flags: mv.flags, color: mv.color,
+              });
+              setLastMove({ from: mv.from, to: mv.to });
+              setTick(t => t + 1);
+              syncAfterMove();
+            }
+          }
+          setIsAIThinking(false);
+        } else {
+          // If no legal move found, AI is done thinking.
+          engine.removeEventListener('message', onMessage);
+          setIsAIThinking(false);
         }
       }
-      setIsAIThinking(false);
-    }, delay);
+    };
+    engine.addEventListener('message', onMessage);
   }, [difficulty, syncAfterMove]);
 
   /* ── Edit Mode square click ────────────── */
@@ -316,11 +330,13 @@ export default function EnginePlayground() {
     if (isAIThinking || gameStatus) return;
     const g = gameRef.current;
     
-    // In normal play, if it's black's turn, we wait for AI (unless it's a 2-player mode, but here human is white)
-    if (g.turn() !== 'w') return;
+    // In normal play, if it's the AI's turn, we wait (unless it's a 2-player mode, but here human is playing against AI)
+    // Wait, with board orientation, the user can play either side.
+    const playerColor = boardOrientation === 'white' ? 'w' : 'b';
+    if (g.turn() !== playerColor) return;
 
     const piece = g.get(sq as Parameters<typeof g.get>[0]);
-    const isOwn = piece && piece.color === 'w';
+    const isOwn = piece && piece.color === playerColor;
 
     if (!selectedSq) {
       if (!isOwn) return;
@@ -356,7 +372,8 @@ export default function EnginePlayground() {
 
   /* ── Hint ────────────────────────────────── */
   const handleHint = useCallback(() => {
-    if (gameRef.current.turn() !== 'w') return;
+    const playerColor = boardOrientation === 'white' ? 'w' : 'b';
+    if (gameRef.current.turn() !== playerColor) return;
     const mvs = gameRef.current.moves({ verbose: true }) as Array<{ from: string; to: string }>;
     if (!mvs.length) return;
     const pick = mvs[Math.floor(Math.random() * mvs.length)];
@@ -374,7 +391,11 @@ export default function EnginePlayground() {
     setTick(t => t + 1);
     setActiveBtn('reset');
     setTimeout(() => setActiveBtn(null), 800);
-  }, []);
+    
+    if (boardOrientation === 'black') {
+      setTimeout(triggerAI, 100);
+    }
+  }, [boardOrientation, triggerAI]);
 
   /* ── Load position ───────────────────────── */
   const handleLoadPosition = useCallback((fen: string) => {
@@ -385,8 +406,13 @@ export default function EnginePlayground() {
       setGameStatus(null); setHintMove(null);
       setMoveHistory([]); setEvalScore(computeEval(gameRef.current));
       setTick(t => t + 1);
+
+      const playerColor = boardOrientation === 'white' ? 'w' : 'b';
+      if (gameRef.current.turn() !== playerColor) {
+        setTimeout(triggerAI, 100);
+      }
     } catch { /* invalid FEN */ }
-  }, []);
+  }, [boardOrientation, triggerAI]);
 
   /* ── Chess960 ────────────────────────────── */
   const handleChess960 = useCallback(() => {
@@ -462,10 +488,10 @@ export default function EnginePlayground() {
     setHintMove(null);
     setTick(t => t + 1);
 
-    if (gameRef.current.turn() === 'b' && !status) {
+    if (gameRef.current.turn() !== (boardOrientation === 'white' ? 'w' : 'b') && !status) {
        setTimeout(() => triggerAI(), 100);
     }
-  }, [editToMove, editCastle, triggerAI]);
+  }, [editToMove, editCastle, triggerAI, boardOrientation]);
 
 
 
@@ -486,11 +512,13 @@ export default function EnginePlayground() {
     const sq: Array<{ sq: string; row: number; col: number; isLight: boolean }> = [];
     for (let r = 0; r < 8; r++) {
       for (let c = 0; c < 8; c++) {
-        sq.push({ sq: `${FILES[c]}${8 - r}`, row: r, col: c, isLight: (r + c) % 2 === 0 });
+        const boardRow = boardOrientation === 'black' ? 7 - r : r;
+        const boardCol = boardOrientation === 'black' ? 7 - c : c;
+        sq.push({ sq: `${FILES[boardCol]}${8 - boardRow}`, row: r, col: c, isLight: (r + c) % 2 === 0 });
       }
     }
     return sq;
-  }, []);
+  }, [boardOrientation]);
 
   /* ── Control button config ───────────────── */
   const ctrlBtns = [
@@ -599,13 +627,13 @@ export default function EnginePlayground() {
                           {col === 0 && (
                             <span className="absolute top-0.5 left-0.5 leading-none font-bold select-none pointer-events-none"
                               style={{ color: isLight ? '#4a4a4a' : '#e0e0e0', fontSize: '0.6rem' }}>
-                              {8 - row}
+                              {boardOrientation === 'black' ? row + 1 : 8 - row}
                             </span>
                           )}
                           {row === 7 && (
                             <span className="absolute bottom-0.5 right-0.5 leading-none font-bold select-none pointer-events-none"
                               style={{ color: isLight ? '#4a4a4a' : '#e0e0e0', fontSize: '0.6rem' }}>
-                              {FILES[col]}
+                              {boardOrientation === 'black' ? FILES[7 - col] : FILES[col]}
                             </span>
                           )}
 
@@ -638,7 +666,7 @@ export default function EnginePlayground() {
                         >
                             <img 
                               src={PIECE_IMAGES[p.color][p.type]} 
-                              alt={`${p.color} ${p.type}`}
+                              alt={`${p.color === 'w' ? 'White' : 'Black'} ${p.type === 'k' ? 'King' : p.type === 'q' ? 'Queen' : p.type === 'r' ? 'Rook' : p.type === 'b' ? 'Bishop' : p.type === 'n' ? 'Knight' : 'Pawn'}`}
                               className="w-[90%] h-[90%] object-contain drop-shadow-md"
                               style={{
                                 ...(selectedSq === p.square ? { filter: 'drop-shadow(0 0 8px rgba(252,211,77,0.85))' } : {}),
@@ -770,8 +798,9 @@ export default function EnginePlayground() {
                           key={p.sym}
                           onClick={() => setEditTool({ color: 'w', type: p.type })}
                           className={`w-10 h-10 rounded-lg flex items-center justify-center transition-all cursor-pointer border ${isActive ? 'bg-white/10 border-white' : 'bg-transparent border-transparent hover:border-white/30'}`}
+                          aria-label={`Select White ${p.type === 'k' ? 'King' : p.type === 'q' ? 'Queen' : p.type === 'r' ? 'Rook' : p.type === 'b' ? 'Bishop' : p.type === 'n' ? 'Knight' : 'Pawn'}`}
                         >
-                          <img src={PIECE_IMAGES['w'][p.type]} alt={`w ${p.type}`} className="w-8 h-8 object-contain drop-shadow-md" />
+                          <img src={PIECE_IMAGES['w'][p.type]} alt={`White ${p.type === 'k' ? 'King' : p.type === 'q' ? 'Queen' : p.type === 'r' ? 'Rook' : p.type === 'b' ? 'Bishop' : p.type === 'n' ? 'Knight' : 'Pawn'}`} className="w-8 h-8 object-contain drop-shadow-md" />
                         </button>
                       );
                     })}
@@ -786,8 +815,9 @@ export default function EnginePlayground() {
                           key={p.sym}
                           onClick={() => setEditTool({ color: 'b', type: p.type })}
                           className={`w-10 h-10 rounded-lg flex items-center justify-center transition-all cursor-pointer border ${isActive ? 'bg-white/10 border-white' : 'bg-transparent border-transparent hover:border-white/30'}`}
+                          aria-label={`Select Black ${p.type === 'k' ? 'King' : p.type === 'q' ? 'Queen' : p.type === 'r' ? 'Rook' : p.type === 'b' ? 'Bishop' : p.type === 'n' ? 'Knight' : 'Pawn'}`}
                         >
-                          <img src={PIECE_IMAGES['b'][p.type]} alt={`b ${p.type}`} className="w-8 h-8 object-contain drop-shadow-md" />
+                          <img src={PIECE_IMAGES['b'][p.type]} alt={`Black ${p.type === 'k' ? 'King' : p.type === 'q' ? 'Queen' : p.type === 'r' ? 'Rook' : p.type === 'b' ? 'Bishop' : p.type === 'n' ? 'Knight' : 'Pawn'}`} className="w-8 h-8 object-contain drop-shadow-md" />
                         </button>
                       );
                     })}
@@ -940,6 +970,20 @@ export default function EnginePlayground() {
                                   console.log("Chess960 clicked");
                                   setShowMore(false); 
                                   handleChess960(); 
+                                },
+                              },
+                              {
+                                icon: '🔁', label: 'Switch 🔁',
+                                action: () => { 
+                                  setShowMore(false); 
+                                  setBoardOrientation(prev => {
+                                    const next = prev === 'white' ? 'black' : 'white';
+                                    const playerColor = next === 'white' ? 'w' : 'b';
+                                    if (gameRef.current.turn() !== playerColor && !isAIThinking) {
+                                      setTimeout(triggerAI, 100);
+                                    }
+                                    return next;
+                                  });
                                 },
                               },
                               {

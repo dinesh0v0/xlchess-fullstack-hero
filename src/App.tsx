@@ -14,11 +14,13 @@ import SubscribersSection from './features/SubscribersSection';
 import EnginePlayground from './features/EnginePlayground';
 import ContactSection from './features/ContactSection';
 import SiteFooter from './layouts/SiteFooter';
+import FallingPiecesBackground from './components/FallingPiecesBackground';
 
 function App() {
   return (
-    <div className="min-h-screen bg-brand-navy">
-      <main>
+    <div className="min-h-screen bg-brand-navy relative">
+      <FallingPiecesBackground />
+      <main className="relative z-10">
         {/* Section 1: Hero */}
         <HeroContainer />
 
@@ -33,7 +35,9 @@ function App() {
       </main>
 
       {/* Footer */}
-      <SiteFooter />
+      <div className="relative z-10">
+        <SiteFooter />
+      </div>
     </div>
   );
 }

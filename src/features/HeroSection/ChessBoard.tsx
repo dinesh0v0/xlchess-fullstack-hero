@@ -17,6 +17,8 @@ interface ChessBoardProps {
   position: BoardPosition;
   /** Squares to highlight (e.g., last move) as [row, col] tuples */
   highlightedSquares?: [number, number][];
+  /** Board orientation (defaults to white) */
+  boardOrientation?: 'white' | 'black';
 }
 
 /** Unicode piece map */
@@ -56,6 +58,7 @@ function isHighlighted(
 const ChessBoard = memo(function ChessBoard({
   position,
   highlightedSquares,
+  boardOrientation = 'white',
 }: ChessBoardProps) {
   const board = useMemo(() => {
     const squares: React.ReactNode[] = [];
@@ -63,10 +66,14 @@ const ChessBoard = memo(function ChessBoard({
     for (let row = 0; row < 8; row++) {
       for (let col = 0; col < 8; col++) {
         const isLight = (row + col) % 2 === 0;
-        const highlighted = isHighlighted(row, col, highlightedSquares);
-        const piece = position[row]?.[col] ?? null;
-        const rank = 8 - row;
-        const file = FILE_LABELS[col];
+        const boardRow = boardOrientation === 'black' ? 7 - row : row;
+        const boardCol = boardOrientation === 'black' ? 7 - col : col;
+        
+        const highlighted = isHighlighted(boardRow, boardCol, highlightedSquares);
+        const piece = position[boardRow]?.[boardCol] ?? null;
+        
+        const rank = 8 - boardRow;
+        const file = FILE_LABELS[boardCol];
 
         let bgClass: string;
         if (highlighted) {
