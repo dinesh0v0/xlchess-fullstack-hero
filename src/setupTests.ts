@@ -12,3 +12,29 @@ Object.defineProperty(window, 'IntersectionObserver', {
   configurable: true,
   value: MockIntersectionObserver,
 });
+
+// Mock Web Worker
+class MockWorker {
+  postMessage = vi.fn();
+  terminate = vi.fn();
+  addEventListener = vi.fn();
+  removeEventListener = vi.fn();
+}
+Object.defineProperty(window, 'Worker', {
+  writable: true,
+  configurable: true,
+  value: MockWorker,
+});
+
+// Mock HTML5 Audio
+class MockAudio {
+  play = vi.fn().mockResolvedValue(undefined);
+  load = vi.fn();
+  pause = vi.fn();
+  currentTime = 0;
+}
+Object.defineProperty(window, 'Audio', {
+  writable: true,
+  configurable: true,
+  value: MockAudio,
+});

@@ -10,6 +10,7 @@
  */
 
 import { memo, useMemo } from 'react';
+import { motion } from 'framer-motion';
 import type { ChessPiece, BoardPosition } from '../../types';
 
 interface ChessBoardProps {
@@ -112,17 +113,24 @@ const ChessBoard = memo(function ChessBoard({
 
             {/* Chess piece */}
             {piece && (
-              <span
+              <motion.span
                 className="text-[clamp(1.5rem,3.5vw,2.5rem)] leading-none select-none drop-shadow-sm"
+                initial={{ opacity: 0, scale: 0.8 }}
+                animate={{ opacity: 1, scale: 1, y: [0, -2, 0] }}
+                transition={{ 
+                  opacity: { duration: 0.3 }, 
+                  scale: { duration: 0.3 },
+                  y: { duration: 3, repeat: Infinity, ease: "easeInOut" }
+                }}
                 style={{
                   filter:
                     piece.color === 'white'
-                      ? 'drop-shadow(0 1px 1px rgba(0,0,0,0.3))'
-                      : 'drop-shadow(0 1px 1px rgba(0,0,0,0.1))',
+                      ? 'drop-shadow(0 4px 6px rgba(0,0,0,0.5)) drop-shadow(0 0 10px rgba(255,255,255,0.2))'
+                      : 'drop-shadow(0 4px 6px rgba(0,0,0,0.8)) drop-shadow(0 0 10px rgba(0,0,0,0.5))',
                 }}
               >
                 {getPieceSymbol(piece)}
-              </span>
+              </motion.span>
             )}
           </div>
         );
@@ -134,10 +142,13 @@ const ChessBoard = memo(function ChessBoard({
 
   return (
     <div
-      className="grid grid-cols-8 border-2 border-brand-border rounded-sm overflow-hidden"
+      className="grid grid-cols-8 border border-[#d4af37]/40 rounded-lg overflow-hidden relative"
+      style={{ boxShadow: '0 20px 50px rgba(0,0,0,0.7), 0 0 30px rgba(212,175,55,0.15)' }}
       role="img"
       aria-label="Chess board showing The Evergreen Game position"
     >
+      {/* Subtle glass overlay to tie colors together */}
+      <div className="absolute inset-0 pointer-events-none bg-white/5 mix-blend-overlay" />
       {board}
     </div>
   );

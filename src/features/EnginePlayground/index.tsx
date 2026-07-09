@@ -14,6 +14,7 @@
 import { useState, useCallback, useRef, useMemo, useEffect } from 'react';
 import { Chess } from 'chess.js';
 import { motion, AnimatePresence, LayoutGroup } from 'framer-motion';
+import { useChessAudio } from '../../hooks/useChessAudio';
 
 /* ─── Types & constants ──────────────────────────── */
 
@@ -184,6 +185,9 @@ export default function EnginePlayground() {
   const [hintMove, setHintMove] = useState<{ from: string; to: string } | null>(null);
   const moveLogRef = useRef<HTMLDivElement>(null);
 
+  /* ── Audio integration ───────────────────── */
+  const { isMuted, toggleMute, playMove, playCapture, playCheck, playGameEnd } = useChessAudio();
+
   /* ── Auto-scroll move log ────────────────── */
   useEffect(() => {
     if (moveLogRef.current) moveLogRef.current.scrollTop = moveLogRef.current.scrollHeight;
@@ -212,7 +216,7 @@ export default function EnginePlayground() {
   }, [tick, boardOrientation]);
 
   /* ── Sync state after move ───────────────── */
-  const syncAfterMove = useCallback(() => {
+  const syncAfterMove = useCallback((mv?: { flags: string }) => {
     const g = gameRef.current;
     const hist = g.history();
     const pairs: { n: number; w: string; b: string | null }[] = [];
@@ -223,11 +227,25 @@ export default function EnginePlayground() {
     setEvalScore(computeEval(g));
 
     let status: string | null = null;
-    if (g.isCheckmate()) status = g.turn() === 'w' ? '0–1  Black wins!' : '1–0  White wins!';
-    else if (g.isStalemate()) status = '½–½  Stalemate';
-    else if (g.isDraw()) status = '½–½  Draw';
+    if (g.isCheckmate()) {
+      status = g.turn() === 'w' ? '0–1  Black wins!' : '1–0  White wins!';
+      playGameEnd();
+    } else if (g.isStalemate()) {
+      status = '½–½  Stalemate';
+      playGameEnd();
+    } else if (g.isDraw()) {
+      status = '½–½  Draw';
+      playGameEnd();
+    } else if (g.isCheck()) {
+      playCheck();
+    } else if (mv && (mv.flags.includes('c') || mv.flags.includes('e'))) {
+      playCapture();
+    } else if (mv) {
+      playMove();
+    }
+    
     setGameStatus(status);
-  }, []);
+  }, [playGameEnd, playCheck, playCapture, playMove]);
 
   /* ── Execute move (human or AI) ──────────── */
   const executeMove = useCallback((from: string, to: string): boolean => {
@@ -244,7 +262,7 @@ export default function EnginePlayground() {
     setSelectedSq(null);
     setLegalTargets([]);
     setHintMove(null);
-    syncAfterMove();
+    syncAfterMove(mv);
     return true;
   }, [syncAfterMove]);
 
@@ -278,7 +296,7 @@ export default function EnginePlayground() {
               });
               setLastMove({ from: mv.from, to: mv.to });
               setTick(t => t + 1);
-              syncAfterMove();
+              syncAfterMove(mv);
             }
           }
           setIsAIThinking(false);
@@ -549,6 +567,20 @@ export default function EnginePlayground() {
         </svg>
       ), label: 'More', action: () => setShowMore(v => !v), color: null,
     },
+    {
+      id: 'mute', icon: isMuted ? (
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round" className="w-5 h-5">
+          <polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5"></polygon>
+          <line x1="23" y1="9" x2="17" y2="15"></line>
+          <line x1="17" y1="9" x2="23" y2="15"></line>
+        </svg>
+      ) : (
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round" className="w-5 h-5">
+          <polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5"></polygon>
+          <path d="M19.07 4.93a10 10 0 0 1 0 14.14M15.54 8.46a5 5 0 0 1 0 7.07"></path>
+        </svg>
+      ), label: isMuted ? 'Unmute' : 'Mute', action: toggleMute, color: null,
+    }
   ];
 
   return (
@@ -563,17 +595,17 @@ export default function EnginePlayground() {
 
       <div className="relative z-10 max-w-[960px] mx-auto">
         <motion.div
-          className="rounded-2xl overflow-hidden border border-[#2e2e2e] flex flex-col lg:flex-row w-full h-fit bg-[#141414]"
-          style={{ boxShadow: '0 24px 80px rgba(0,0,0,0.6), 0 0 40px rgba(212,175,55,0.1)' }}
+          className="rounded-2xl overflow-hidden border border-[#d4af37]/30 flex flex-col lg:flex-row w-full h-fit bg-[#0f0f0f]/80 backdrop-blur-md"
+          style={{ boxShadow: '0 24px 80px rgba(0,0,0,0.8), 0 0 40px rgba(212,175,55,0.15)' }}
           initial={{ opacity: 0, y: 40, scale: 0.96 }}
           whileInView={{ opacity: 1, y: 0, scale: 1 }}
           viewport={{ once: true, margin: '-60px' }}
           transition={{ duration: 0.75, ease: [0.22, 1, 0.36, 1] as [number, number, number, number] }}
         >
           {/* ── LEFT: Eval bar + Board ───────────── */}
-          <div className="flex flex-row w-full lg:w-[532px] shrink-0 border-b lg:border-b-0 lg:border-r border-[#2e2e2e] bg-[#0f0f0f]">
+          <div className="flex flex-row w-full lg:w-[532px] shrink-0 border-b lg:border-b-0 lg:border-r border-[#d4af37]/20 bg-transparent">
               {/* Eval bar */}
-              <div className="flex flex-col items-center justify-between w-8 shrink-0 bg-[#0f0f0f] border-r border-[#2e2e2e] py-2 gap-1">
+              <div className="flex flex-col items-center justify-between w-8 shrink-0 bg-black/40 border-r border-[#d4af37]/20 py-2 gap-1">
                 {/* Black portion */}
                 <motion.div
                   className="w-3 rounded-b-full bg-[#1a1a1a] border border-[#333]"
@@ -646,6 +678,20 @@ export default function EnginePlayground() {
                     })}
                   </div>
 
+                  {/* Check vignette overlay */}
+                  <AnimatePresence>
+                    {gameRef.current.inCheck() && (
+                      <motion.div
+                        className="absolute inset-0 pointer-events-none z-10 rounded-sm"
+                        style={{ background: 'radial-gradient(circle, transparent 40%, rgba(185, 28, 28, 0.4) 100%)' }}
+                        initial={{ opacity: 0 }}
+                        animate={{ opacity: [0, 0.7, 0.2] }}
+                        exit={{ opacity: 0 }}
+                        transition={{ duration: 1.5, repeat: Infinity, repeatType: "reverse" }}
+                      />
+                    )}
+                  </AnimatePresence>
+
                   {/* Piece layer — layoutId animation */}
                   <LayoutGroup id="ep-board">
                     <AnimatePresence>
@@ -659,7 +705,7 @@ export default function EnginePlayground() {
                             width: '12.5%', height: '12.5%',
                             left: `${p.col * 12.5}%`, top: `${p.row * 12.5}%`,
                           }}
-                          exit={{ opacity: 0, scale: 0.15, transition: { duration: 0.18, ease: 'easeIn' } }}
+                          exit={{ opacity: 0, scale: 1.5, filter: 'blur(4px)', transition: { duration: 0.3 } }}
                           transition={{
                             layout: { type: 'spring', stiffness: 400, damping: 28, mass: 0.8 },
                           }}
@@ -744,7 +790,7 @@ export default function EnginePlayground() {
                 </div>
 
                 {/* Turn indicator */}
-                <div className="flex items-center gap-2 px-3 py-2 bg-[#0f0f0f] border-t border-[#2e2e2e]">
+                <div className="flex items-center gap-2 px-3 py-2 bg-black/40 border-t border-[#d4af37]/20">
                   <motion.span
                     className={`w-3 h-3 rounded-full border ${gameRef.current.turn() === 'w' ? 'bg-white border-gray-300' : 'bg-gray-900 border-gray-500'}`}
                     animate={{ scale: [1, 1.2, 1] }}
@@ -932,13 +978,13 @@ export default function EnginePlayground() {
                           id={`ep-${btn.id}`}
                           type="button"
                           onClick={btn.action}
-                          className="flex-1 flex flex-col items-center gap-1.5 py-2.5 px-1 rounded-xl transition-all duration-200 cursor-pointer border"
+                          className="flex-1 flex flex-col items-center gap-1.5 py-2.5 px-1 rounded-xl transition-all duration-300 cursor-pointer border"
                           style={{
                             color: isActive ? activeColor : '#a3a3a3',
-                            borderColor: isActive ? activeColor : '#2e2e2e',
-                            background: isActive ? `${activeColor}18` : 'transparent',
+                            borderColor: isActive ? activeColor : 'rgba(212,175,55,0.3)',
+                            background: isActive ? `${activeColor}18` : 'rgba(15,15,15,0.6)',
                           }}
-                          whileHover={{ scale: 1.05, color: '#fff' }}
+                          whileHover={{ scale: 1.05, color: '#fff', boxShadow: '0 0 15px rgba(212,175,55,0.5)' }}
                           whileTap={{ scale: 0.93 }}
                           aria-label={btn.label}
                           aria-pressed={isActive}
@@ -956,8 +1002,8 @@ export default function EnginePlayground() {
                           {/* Click outside overlay, fixed z-index context relative to the dropdown */}
                           <div className="fixed inset-0 z-20" onClick={() => setShowMore(false)} aria-hidden="true" />
                           <motion.div
-                            className="absolute top-full right-0 mt-2 w-44 rounded-xl border border-[#2e2e2e] overflow-hidden z-30"
-                            style={{ background: '#1f1f1f', boxShadow: '0 12px 36px rgba(0,0,0,0.5)' }}
+                            className="absolute top-full right-0 mt-2 w-44 rounded-xl border border-[#d4af37]/30 overflow-hidden z-30 backdrop-blur-md"
+                            style={{ background: 'rgba(15,15,15,0.85)', boxShadow: '0 12px 36px rgba(0,0,0,0.6), 0 0 15px rgba(212,175,55,0.1)' }}
                             initial={{ opacity: 0, scale: 0.88, y: -8 }}
                             animate={{ opacity: 1, scale: 1, y: 0 }}
                             exit={{ opacity: 0, scale: 0.88, y: -8 }}
@@ -1021,11 +1067,12 @@ export default function EnginePlayground() {
                         <motion.button
                           key={d}
                           onClick={() => setDifficulty(d)}
-                          className={`flex-1 h-9 rounded-lg text-sm font-black transition-all duration-200 cursor-pointer border ${difficulty === d
-                              ? 'bg-brand-accent text-white border-brand-accent shadow-lg'
-                              : 'bg-transparent text-text-muted border-[#2e2e2e] hover:border-brand-accent/40 hover:text-white'
+                          className={`flex-1 h-9 rounded-lg text-sm font-black transition-all duration-300 cursor-pointer border ${difficulty === d
+                              ? 'bg-brand-accent text-white border-brand-accent'
+                              : 'bg-black/40 text-text-muted border-[#d4af37]/30 hover:border-[#d4af37]/60 hover:text-white'
                             }`}
-                          style={difficulty === d ? { boxShadow: '0 0 14px rgba(110,99,246,0.5)' } : {}}
+                          style={difficulty === d ? { boxShadow: '0 0 15px rgba(212,175,55,0.6)' } : {}}
+                          whileHover={difficulty !== d ? { boxShadow: '0 0 10px rgba(212,175,55,0.3)' } : undefined}
                           whileTap={{ scale: 0.93 }}
                           aria-pressed={difficulty === d}
                           aria-label={DIFFICULTY_LABELS[d]}
@@ -1039,8 +1086,8 @@ export default function EnginePlayground() {
                   {/* Move log */}
                   <div
                     ref={moveLogRef}
-                    className="flex-1 rounded-xl border border-[#2e2e2e] overflow-y-auto font-mono text-sm"
-                    style={{ background: '#0f0f0f', minHeight: 140, maxHeight: 260, padding: '12px' }}
+                    className="flex-1 rounded-xl border border-[#d4af37]/30 overflow-y-auto font-mono text-sm"
+                    style={{ background: 'rgba(0,0,0,0.4)', minHeight: 140, maxHeight: 260, padding: '12px' }}
                     role="log"
                     aria-label="Move history"
                     aria-live="polite"

@@ -76,7 +76,7 @@ const ContactSection = memo(function ContactSection() {
         <div className="relative">
           {/* Subtle gradient border wrapper */}
           <div className="absolute -inset-px bg-gradient-to-br from-white/10 to-transparent rounded-[2rem] pointer-events-none" />
-          
+
           <div className="relative rounded-[2rem] p-8 sm:p-12 border border-white/5 bg-[#0a0a0a]/60 backdrop-blur-2xl shadow-2xl overflow-hidden">
             <AnimatePresence mode="wait">
               {status === 'sent' ? (
@@ -160,11 +160,10 @@ const ContactSection = memo(function ContactSection() {
                           key={sub}
                           type="button"
                           onClick={() => setSubject(sub)}
-                          className={`px-5 py-2.5 rounded-full text-sm font-semibold transition-all duration-300 cursor-pointer border ${
-                            subject === sub
+                          className={`px-5 py-2.5 rounded-full text-sm font-semibold transition-all duration-300 cursor-pointer border ${subject === sub
                               ? 'bg-brand-accent text-white border-brand-accent shadow-[0_0_15px_rgba(110,99,246,0.3)]'
                               : 'bg-white/5 text-text-secondary border-transparent hover:bg-white/10 hover:text-white'
-                          }`}
+                            }`}
                         >
                           {sub}
                         </button>
