@@ -155,6 +155,7 @@ export default function EnginePlayground() {
   const gameRef = useRef(new Chess());
   const pieceIdsRef = useRef(initPieceIds(gameRef.current));
   const engineRef = useRef<Worker | null>(null);
+  const activeAIListener = useRef<((e: MessageEvent) => void) | null>(null);
 
   /* ── Initialize Stockfish ────────────────── */
   useEffect(() => {
@@ -274,6 +275,10 @@ export default function EnginePlayground() {
 
     setIsAIThinking(true);
 
+    if (activeAIListener.current) {
+      engine.removeEventListener('message', activeAIListener.current);
+    }
+
     const { skill, depth } = STOCKFISH_LEVELS[difficulty];
     engine.postMessage(`setoption name Skill Level value ${skill}`);
     engine.postMessage(`position fen ${gameRef.current.fen()}`);
@@ -286,6 +291,7 @@ export default function EnginePlayground() {
         if (match && match[1]) {
           const moveStr = match[1];
           engine.removeEventListener('message', onMessage);
+          activeAIListener.current = null;
           
           if (!gameRef.current.isGameOver()) {
             let mv: ReturnType<typeof gameRef.current.move> | null = null;
@@ -303,10 +309,12 @@ export default function EnginePlayground() {
         } else {
           // If no legal move found, AI is done thinking.
           engine.removeEventListener('message', onMessage);
+          activeAIListener.current = null;
           setIsAIThinking(false);
         }
       }
     };
+    activeAIListener.current = onMessage;
     engine.addEventListener('message', onMessage);
   }, [difficulty, syncAfterMove]);
 
@@ -1013,7 +1021,6 @@ export default function EnginePlayground() {
                               {
                                 icon: '⇄', label: 'Chess960',
                                 action: () => { 
-                                  console.log("Chess960 clicked");
                                   setShowMore(false); 
                                   handleChess960(); 
                                 },
@@ -1035,7 +1042,6 @@ export default function EnginePlayground() {
                               {
                                 icon: '✏️', label: 'Edit Position',
                                 action: () => { 
-                                  console.log("Edit Position clicked");
                                   setShowMore(false); 
                                   enterEditMode(); 
                                 },

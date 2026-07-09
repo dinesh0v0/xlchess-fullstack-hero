@@ -20,6 +20,13 @@ export function useChessAudio() {
     if (captureAudio.current) captureAudio.current.load();
     if (checkAudio.current) checkAudio.current.load();
     if (gameEndAudio.current) gameEndAudio.current.load();
+
+    return () => {
+      moveAudio.current = null;
+      captureAudio.current = null;
+      checkAudio.current = null;
+      gameEndAudio.current = null;
+    };
   }, []);
 
   const playSound = useCallback((audioRef: React.MutableRefObject<HTMLAudioElement | null>) => {
