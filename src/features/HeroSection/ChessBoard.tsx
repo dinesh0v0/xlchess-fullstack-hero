@@ -138,7 +138,7 @@ const ChessBoard = memo(function ChessBoard({
     }
 
     return squares;
-  }, [position, highlightedSquares]);
+  }, [position, highlightedSquares, boardOrientation]);
 
   return (
     <div

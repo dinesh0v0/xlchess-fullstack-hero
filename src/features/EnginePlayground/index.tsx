@@ -381,7 +381,7 @@ export default function EnginePlayground() {
     } else {
       setSelectedSq(null); setLegalTargets([]);
     }
-  }, [isEditMode, handleEditClick, isAIThinking, gameStatus, selectedSq, legalTargets, executeMove, triggerAI]);
+  }, [isEditMode, handleEditClick, isAIThinking, gameStatus, selectedSq, legalTargets, executeMove, triggerAI, boardOrientation]);
 
   /* ── Undo ────────────────────────────────── */
   const handleUndo = useCallback(() => {
@@ -406,7 +406,7 @@ export default function EnginePlayground() {
     setHintMove({ from: pick.from, to: pick.to });
     setActiveBtn('hint');
     setTimeout(() => { setActiveBtn(null); setHintMove(null); }, 2500);
-  }, []);
+  }, [boardOrientation]);
 
   /* ── Reset ───────────────────────────────── */
   const handleReset = useCallback(() => {
