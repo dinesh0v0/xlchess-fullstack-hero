@@ -13,6 +13,7 @@ import { HeroContainer } from './features/HeroSection';
 import SubscribersSection from './features/SubscribersSection';
 import EnginePlayground from './features/EnginePlayground';
 import ContactSection from './features/ContactSection';
+import SeoContentSection from './features/SeoContentSection';
 import SiteFooter from './layouts/SiteFooter';
 import FallingPiecesBackground from './components/FallingPiecesBackground';
 
@@ -29,6 +30,9 @@ function App() {
 
         {/* Section 3: Engine Playground */}
         <EnginePlayground />
+
+        {/* Section 3.5: SEO Features & FAQ */}
+        <SeoContentSection />
 
         {/* Section 4: Contact Us */}
         <ContactSection />
