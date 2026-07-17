@@ -48,7 +48,7 @@ const ContactSection = memo(function ContactSection() {
   return (
     <section
       id="contact"
-      className="relative w-full py-28 overflow-hidden"
+      className="relative w-full py-16 lg:py-24 overflow-hidden"
       aria-label="Contact us"
     >
       <div className="relative z-10 max-w-3xl mx-auto px-6">
@@ -75,9 +75,9 @@ const ContactSection = memo(function ContactSection() {
 
         <div className="relative">
           {/* Subtle gradient border wrapper */}
-          <div className="absolute -inset-px bg-gradient-to-br from-white/10 to-transparent rounded-[2rem] pointer-events-none" />
+          <div className="absolute -inset-px bg-gradient-to-br from-white/10 to-transparent rounded-3xl pointer-events-none" />
 
-          <div className="relative rounded-[2rem] p-8 sm:p-12 border border-white/5 bg-[#0a0a0a]/60 backdrop-blur-2xl shadow-2xl overflow-hidden">
+          <div className="relative rounded-3xl p-6 sm:p-12 border border-white/5 bg-[#0a0a0a]/60 backdrop-blur-2xl shadow-2xl overflow-hidden">
             <AnimatePresence mode="wait">
               {status === 'sent' ? (
                 <motion.div

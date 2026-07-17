@@ -17,7 +17,7 @@ const SubscribersSection = memo(function SubscribersSection() {
   return (
     <section
       id="subscribers"
-      className="relative w-full overflow-hidden py-24 lg:py-32"
+      className="relative w-full overflow-hidden py-16 lg:py-24"
       style={{ background: 'linear-gradient(to bottom, #0a0a0a 0%, #141414 50%, #0a0a0a 100%)' }}
       aria-label="Build More Than Subscribers"
     >

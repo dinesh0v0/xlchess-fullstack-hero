@@ -60,7 +60,7 @@ const HeroCopy = memo(function HeroCopy() {
 
       {/* Main Headline */}
       <motion.h1
-        className="text-4xl sm:text-5xl lg:text-6xl font-black leading-[1.1] tracking-tight"
+        className="text-5xl sm:text-6xl lg:text-7xl font-black leading-[1.1] tracking-tight"
         custom={0.15}
         initial="hidden"
         animate="visible"
@@ -75,7 +75,7 @@ const HeroCopy = memo(function HeroCopy() {
 
       {/* Subtitle */}
       <motion.p
-        className="text-lg sm:text-xl font-semibold text-white/90 leading-snug"
+        className="text-xl sm:text-2xl font-semibold text-white/90 leading-snug"
         custom={0.3}
         initial="hidden"
         animate="visible"
@@ -86,7 +86,7 @@ const HeroCopy = memo(function HeroCopy() {
 
       {/* Description */}
       <motion.p
-        className="text-base text-text-secondary leading-relaxed max-w-lg"
+        className="text-lg text-text-secondary leading-relaxed max-w-lg"
         custom={0.45}
         initial="hidden"
         animate="visible"

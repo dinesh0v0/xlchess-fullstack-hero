@@ -156,13 +156,41 @@ export default function EnginePlayground() {
   const pieceIdsRef = useRef(initPieceIds(gameRef.current));
   const engineRef = useRef<Worker | null>(null);
   const activeAIListener = useRef<((e: MessageEvent) => void) | null>(null);
+  const evalEngineRef = useRef<Worker | null>(null);
+  const activeEvalTurn = useRef<'w' | 'b'>('w');
 
-  /* ── Initialize Stockfish ────────────────── */
   useEffect(() => {
     engineRef.current = new Worker('/stockfish.js');
     engineRef.current.postMessage('uci');
+
+    evalEngineRef.current = new Worker('/stockfish.js');
+    evalEngineRef.current.postMessage('uci');
+    evalEngineRef.current.postMessage('setoption name Skill Level value 20');
+    evalEngineRef.current.onmessage = (e) => {
+      const msg = e.data;
+      if (typeof msg === 'string') {
+        if (msg.includes('score cp')) {
+          const match = msg.match(/score cp (-?\d+)/);
+          if (match) {
+            let cp = parseInt(match[1], 10);
+            if (activeEvalTurn.current === 'b') cp = -cp;
+            setEvalScore(Math.round(cp / 10) / 10); // convert centipawns to pawn units
+          }
+        } else if (msg.includes('score mate')) {
+          const match = msg.match(/score mate (-?\d+)/);
+          if (match) {
+            let mates = parseInt(match[1], 10);
+            let val = mates > 0 ? 100 : -100;
+            if (activeEvalTurn.current === 'b') val = -val;
+            setEvalScore(val);
+          }
+        }
+      }
+    };
+
     return () => {
       engineRef.current?.terminate();
+      evalEngineRef.current?.terminate();
     };
   }, []);
 
@@ -225,7 +253,14 @@ export default function EnginePlayground() {
       pairs.push({ n: i / 2 + 1, w: hist[i], b: hist[i + 1] ?? null });
     }
     setMoveHistory(pairs);
+    
+    // Instant material fallback, then engine eval
     setEvalScore(computeEval(g));
+    activeEvalTurn.current = g.turn();
+    if (evalEngineRef.current) {
+      evalEngineRef.current.postMessage(`position fen ${g.fen()}`);
+      evalEngineRef.current.postMessage(`go depth 12`);
+    }
 
     let status: string | null = null;
     if (g.isCheckmate()) {
@@ -430,7 +465,15 @@ export default function EnginePlayground() {
       pieceIdsRef.current = initPieceIds(gameRef.current);
       setLastMove(null); setSelectedSq(null); setLegalTargets([]);
       setGameStatus(null); setHintMove(null);
-      setMoveHistory([]); setEvalScore(computeEval(gameRef.current));
+      setMoveHistory([]);
+      
+      setEvalScore(computeEval(gameRef.current));
+      activeEvalTurn.current = gameRef.current.turn();
+      if (evalEngineRef.current) {
+        evalEngineRef.current.postMessage(`position fen ${gameRef.current.fen()}`);
+        evalEngineRef.current.postMessage(`go depth 12`);
+      }
+      
       setTick(t => t + 1);
 
       const playerColor = boardOrientation === 'white' ? 'w' : 'b';
@@ -611,34 +654,24 @@ export default function EnginePlayground() {
           transition={{ duration: 0.75, ease: [0.22, 1, 0.36, 1] as [number, number, number, number] }}
         >
           {/* ── LEFT: Eval bar + Board ───────────── */}
-          <div className="flex flex-row w-full lg:w-[532px] shrink-0 border-b lg:border-b-0 lg:border-r border-[#d4af37]/20 bg-transparent">
+          <div className="flex flex-col w-full lg:w-[532px] shrink-0 border-b lg:border-b-0 lg:border-r border-[#d4af37]/20 bg-transparent p-4 lg:p-5 gap-4">
+            {/* Top row: Eval Bar + Board */}
+            <div className="flex flex-row w-full gap-3">
               {/* Eval bar */}
-              <div className="flex flex-col items-center justify-between w-8 shrink-0 bg-black/40 border-r border-[#d4af37]/20 py-2 gap-1">
-                {/* Black portion */}
-                <motion.div
-                  className="w-3 rounded-b-full bg-[#1a1a1a] border border-[#333]"
-                  style={{ height: `${100 - whitePercent}%` }}
-                  animate={{ height: `${100 - whitePercent}%` }}
-                  transition={{ type: 'spring', stiffness: 120, damping: 20 }}
-                />
-                {/* White portion */}
-                <motion.div
-                  className="w-3 rounded-t-full bg-white/90"
-                  style={{ height: `${whitePercent}%` }}
-                  animate={{ height: `${whitePercent}%` }}
-                  transition={{ type: 'spring', stiffness: 120, damping: 20 }}
-                />
-                <span className="text-[0.55rem] text-text-muted font-mono mt-1 shrink-0">
-                  {evalLabel}
-                </span>
+              <div className="flex flex-col items-center justify-center w-8 shrink-0 bg-black/40 border border-[#d4af37]/20 rounded-xl py-3 px-2">
+                <div className="relative w-full flex-1 bg-[#1a1a1a] rounded-full overflow-hidden border border-[#333] flex flex-col justify-end">
+                  {/* White portion fills from bottom */}
+                  <motion.div
+                    className="w-full bg-white/90"
+                    style={{ height: `${whitePercent}%` }}
+                    animate={{ height: `${whitePercent}%` }}
+                    transition={{ type: 'spring', stiffness: 120, damping: 20 }}
+                  />
+                </div>
               </div>
 
               {/* Board */}
-              <div className="flex flex-col flex-1 min-w-0">
-                <div
-                  className="relative w-full"
-                  style={{ aspectRatio: '1' }}
-                >
+              <div className="relative flex-1 min-w-0 rounded-lg overflow-hidden shadow-[0_0_20px_rgba(0,0,0,0.4)] border border-[#d4af37]/20" style={{ aspectRatio: '1' }}>
                   {/* Squares */}
                   <div className="absolute inset-0 grid grid-cols-8">
                     {boardSquares.map(({ sq, row, col, isLight }) => {
@@ -654,14 +687,15 @@ export default function EnginePlayground() {
 
                       let bg = isLight ? '#e0e0e0' : '#4a4a4a';
                       if (isFrom || isTo) bg = isLight ? '#fcd34d' : '#d4af37';
-                      if (isSel) bg = isLight ? '#fcd34d' : '#d4af37';
                       if (isHFrom || isHTo) bg = isLight ? '#FDE68A' : '#D97706';
+                      
+                      const selClasses = isSel ? 'ring-inset ring-[3px] ring-[#fcd34d] shadow-[inset_0_0_20px_rgba(252,211,77,0.7)] z-10 bg-brand-accent/40 mix-blend-screen' : '';
 
                       return (
                         <div
                           key={sq}
                           style={{ background: bg }}
-                          className={`relative cursor-pointer select-none ${inCheck ? 'animate-check-heartbeat' : ''} ${isTo ? 'z-10' : ''}`}
+                          className={`relative cursor-pointer select-none ${inCheck ? 'animate-check-heartbeat z-10' : ''} ${isTo ? 'z-10' : ''} ${selClasses}`}
                           onClick={() => handleSquareClick(sq)}
                         >
                           {col === 0 && (
@@ -752,12 +786,12 @@ export default function EnginePlayground() {
                               /* Move dot — solid, clearly visible indicator */
                               <div className="absolute inset-0 flex items-center justify-center">
                                 <div
-                                  className="rounded-full"
+                                  className="rounded-full animate-pulse"
                                   style={{
-                                    width: '30%',
-                                    height: '30%',
-                                    backgroundColor: 'rgba(212, 175, 55, 0.45)',
-                                    boxShadow: '0 0 6px 1px rgba(212,175,55,0.25)',
+                                    width: '32%',
+                                    height: '32%',
+                                    backgroundColor: 'rgba(212, 175, 55, 0.8)',
+                                    boxShadow: '0 0 10px 2px rgba(212,175,55,0.6)',
                                   }}
                                 />
                               </div>
@@ -796,38 +830,59 @@ export default function EnginePlayground() {
                     )}
                   </AnimatePresence>
                 </div>
+              </div>
 
-                {/* Turn indicator */}
-                <div className="flex items-center gap-2 px-3 py-2 bg-black/40 border-t border-[#d4af37]/20">
-                  <motion.span
-                    className={`w-3 h-3 rounded-full border ${gameRef.current.turn() === 'w' ? 'bg-white border-gray-300' : 'bg-gray-900 border-gray-500'}`}
-                    animate={{ scale: [1, 1.2, 1] }}
-                    transition={{ duration: 1.2, repeat: Infinity, ease: 'easeInOut' }}
-                    key={tick}
-                  />
-                  <span className="text-xs text-text-secondary font-medium">
-                    {isAIThinking
-                      ? 'AI thinking...'
-                      : gameRef.current.turn() === 'w'
-                        ? "White's Turn"
-                        : "Black's Turn"}
-                  </span>
-                  {isAIThinking && (
-                    <div className="flex gap-0.5 ml-1">
-                      {[0, 1, 2].map(i => (
-                        <motion.div key={i} className="w-1 h-3 rounded-full bg-brand-accent"
-                          animate={{ scaleY: [0.6, 1.3, 0.6] }}
-                          transition={{ duration: 0.8, delay: i * 0.15, repeat: Infinity, ease: 'easeInOut' }}
-                        />
-                      ))}
-                    </div>
-                  )}
+            {/* Bottom row: Score + Turn Indicator */}
+            <div className="flex items-center px-4 py-3 bg-black/40 border border-[#d4af37]/20 rounded-xl">
+              {/* Score indicator (aligned with eval bar) */}
+              <div className="w-8 flex justify-center shrink-0 border-r border-[#d4af37]/20 mr-3 pr-1">
+                <span className="text-[0.65rem] text-text-muted font-mono font-semibold">
+                  {evalLabel}
+                </span>
+              </div>
+              
+              {/* Turn indicator */}
+              <div className="flex items-center gap-2 flex-1">
+                <motion.span
+                  className={`w-3 h-3 rounded-full border ${gameRef.current.turn() === 'w' ? 'bg-white border-gray-300 shadow-[0_0_8px_rgba(255,255,255,0.6)]' : 'bg-gray-900 border-gray-500 shadow-[0_0_8px_rgba(0,0,0,0.8)]'}`}
+                  animate={{ scale: [1, 1.2, 1] }}
+                  transition={{ duration: 1.2, repeat: Infinity, ease: 'easeInOut' }}
+                  key={tick}
+                />
+                <div className="overflow-hidden h-5 flex items-center">
+                  <AnimatePresence mode="wait">
+                    <motion.span
+                      key={isAIThinking ? 'ai' : gameRef.current.turn()}
+                      initial={{ y: 15, opacity: 0 }}
+                      animate={{ y: 0, opacity: 1 }}
+                      exit={{ y: -15, opacity: 0 }}
+                      transition={{ duration: 0.3, ease: 'backOut' }}
+                      className="block text-xs text-text-secondary font-medium tracking-wide"
+                    >
+                      {isAIThinking
+                        ? 'AI thinking...'
+                        : gameRef.current.turn() === 'w'
+                          ? "White's Turn"
+                          : "Black's Turn"}
+                    </motion.span>
+                  </AnimatePresence>
                 </div>
+                {isAIThinking && (
+                  <div className="flex gap-0.5 ml-1">
+                    {[0, 1, 2].map(i => (
+                      <motion.div key={i} className="w-1 h-3 rounded-full bg-brand-accent"
+                        animate={{ scaleY: [0.6, 1.3, 0.6] }}
+                        transition={{ duration: 0.8, delay: i * 0.15, repeat: Infinity, ease: 'easeInOut' }}
+                      />
+                    ))}
+                  </div>
+                )}
               </div>
             </div>
+          </div>
         {/* ── RIGHT: Controls ──────────────────── */}
         <motion.div 
-          className="flex-1 flex flex-col p-4 lg:p-5 gap-3 lg:gap-4 justify-center relative min-w-[320px]"
+          className="flex-1 flex flex-col p-4 lg:p-5 gap-3 lg:gap-4 justify-center relative min-w-0 w-full lg:min-w-[320px]"
           initial={{ opacity: 0, x: 20 }}
           whileInView={{ opacity: 1, x: 0 }}
           viewport={{ once: true }}

@@ -19,7 +19,7 @@ const HeroContainer = memo(function HeroContainer() {
   return (
     <section
       id="hero"
-      className="relative min-h-screen w-full overflow-hidden bg-brand-navy"
+      className="relative min-h-screen w-full overflow-hidden bg-brand-navy flex flex-col"
       aria-label="DAChess Hero Section"
     >
       {/* Background decorative elements */}
@@ -36,8 +36,8 @@ const HeroContainer = memo(function HeroContainer() {
       />
 
       {/* Main content grid */}
-      <div className="relative z-10 max-w-7xl mx-auto px-6 sm:px-8 lg:px-12 pt-6 sm:pt-8 lg:pt-10 pb-8 sm:pb-10 lg:pb-12">
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-12 lg:gap-16 items-center">
+      <div className="relative z-10 w-full max-w-7xl mx-auto px-6 sm:px-8 lg:px-12 flex-1 flex flex-col justify-center py-12 lg:py-24">
+        <div className="grid grid-cols-1 xl:grid-cols-2 gap-12 lg:gap-16 items-center">
           {/* Left Column — Copy */}
           <div className="order-1">
             <HeroCopy />

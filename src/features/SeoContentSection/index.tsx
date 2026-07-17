@@ -6,7 +6,7 @@ const SeoContentSection = memo(function SeoContentSection() {
   return (
     <section 
       id="about-dachess" 
-      className="w-full bg-brand-navy py-24 px-6 sm:px-8 lg:px-12 relative overflow-hidden"
+      className="w-full bg-brand-navy py-16 lg:py-24 px-6 sm:px-8 lg:px-12 relative overflow-hidden"
       aria-label="About DAChess Features and FAQ"
     >
       {/* Decorative background glow */}
