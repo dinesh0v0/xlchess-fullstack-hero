@@ -3,6 +3,7 @@ import { Link } from 'react-router-dom';
 import { Chess } from 'chess.js';
 import { motion, AnimatePresence, LayoutGroup } from 'framer-motion';
 import { puzzles } from '../data/puzzles';
+import Icon from '../assets/Icon.png';
 
 type Color = 'w' | 'b';
 const FILES = ['a', 'b', 'c', 'd', 'e', 'f', 'g', 'h'] as const;
@@ -220,7 +221,7 @@ export default function Puzzles() {
           <span className="text-sm font-semibold tracking-wide">Back to Home</span>
         </Link>
         <div className="absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 flex flex-col items-center">
-           <img src="/src/assets/Icon.png" alt="Logo" className="h-10 w-auto mb-1 opacity-90" />
+           <img src={Icon} alt="Logo" className="h-10 w-auto mb-1 opacity-90" />
            <span className="text-xl font-black tracking-widest text-white leading-none">DACHESS</span>
         </div>
         <div className="w-32"></div>
