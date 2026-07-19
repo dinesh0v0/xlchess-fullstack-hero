@@ -68,7 +68,7 @@ function getPromotionFromSAN(san: string): 'q' | 'r' | 'b' | 'n' {
 }
 
 export default function Puzzles() {
-  const [puzzleIndex, setPuzzleIndex] = useState(0);
+  const [puzzleIndex, setPuzzleIndex] = useState(() => Math.floor(Math.random() * puzzles.length));
   const puzzle = puzzles[puzzleIndex];
   
   // Use a ref to track puzzleIndex for closures (BUG-04 fix)
@@ -314,8 +314,8 @@ export default function Puzzles() {
             <h2 className={`text-xl font-bold mr-4 transition-colors duration-300 ${status === 'success' ? 'text-green-400' : status === 'failed' ? 'text-red-400' : 'text-white'}`}>
                {status === 'success' ? 'Puzzle Solved!' : status === 'failed' ? 'Incorrect Move' : `${puzzle.playerColor === 'w' ? 'White' : 'Black'} to Move`}
             </h2>
-            <button onClick={handleHint} disabled={status !== 'playing'} className="px-6 py-2.5 rounded-lg border border-brand-border hover:bg-brand-surface text-text-secondary hover:text-white transition-all font-semibold disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer">Hint</button>
-            <button onClick={handleReset} disabled={status === 'failed' || moveStep === 0} className="px-6 py-2.5 rounded-lg border border-brand-border hover:bg-brand-surface text-text-secondary hover:text-white transition-all font-semibold disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer">Reset</button>
+            <button onClick={handleHint} disabled={status !== 'playing'} title={status !== 'playing' ? 'Hint not available' : ''} className="px-6 py-2.5 rounded-lg border border-brand-border hover:bg-brand-surface text-text-secondary hover:text-white transition-all font-semibold disabled:opacity-50 disabled:grayscale disabled:cursor-not-allowed cursor-pointer">Hint</button>
+            <button onClick={handleReset} disabled={status === 'failed' || gameRef.current.history().length === 0} title={status === 'failed' ? 'Puzzle failed' : (gameRef.current.history().length === 0 ? 'Make a move to enable' : '')} className="px-6 py-2.5 rounded-lg border border-brand-border hover:bg-brand-surface text-text-secondary hover:text-white transition-all font-semibold disabled:opacity-50 disabled:grayscale disabled:cursor-not-allowed cursor-pointer">Reset</button>
             <button onClick={handleNextPuzzle} className="px-8 py-2.5 rounded-lg bg-brand-accent text-brand-navy hover:bg-brand-accent-light shadow-[0_4px_15px_rgba(212,175,55,0.4)] transition-all font-bold cursor-pointer hover:scale-105 active:scale-95">Next Puzzle</button>
           </div>
         </div>
