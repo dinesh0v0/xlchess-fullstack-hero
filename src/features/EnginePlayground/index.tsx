@@ -602,7 +602,6 @@ export default function EnginePlayground() {
   /* ── Control button config ───────────────── */
   const isGameOver = !!gameStatus;
   const hasNoMoves = moveHistory.length === 0;
-  const isGameActive = !hasNoMoves && !isGameOver;
   const ctrlBtns = [
     {
       id: 'undo', icon: (
@@ -611,6 +610,7 @@ export default function EnginePlayground() {
         </svg>
       ), label: 'Undo', action: handleUndo, color: null,
       disabled: hasNoMoves || isAIThinking || isGameOver,
+      disabledReason: hasNoMoves ? 'Make a move to enable' : (isGameOver ? 'Game over' : 'AI is thinking'),
     },
     {
       id: 'hint', icon: (
@@ -619,6 +619,7 @@ export default function EnginePlayground() {
         </svg>
       ), label: 'Hint', action: handleHint, color: '#EAB308',
       disabled: isGameOver || isAIThinking,
+      disabledReason: isGameOver ? 'Game over' : 'AI is thinking',
     },
     {
       id: 'reset', icon: activeBtn === 'reset'
@@ -626,6 +627,7 @@ export default function EnginePlayground() {
         : <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round" className="w-5 h-5"><path d="M3 12a9 9 0 1 0 9-9 9.75 9.75 0 0 0-6.74 2.74L3 8" /><path d="M3 3v5h5" /></svg>,
       label: 'Reset', action: handleReset, color: '#ef4444',
       disabled: hasNoMoves || isAIThinking,
+      disabledReason: hasNoMoves ? 'Make a move to enable' : 'AI is thinking',
     },
     {
       id: 'more', icon: (
@@ -1061,7 +1063,8 @@ export default function EnginePlayground() {
                           type="button"
                           onClick={btn.action}
                           disabled={btn.disabled}
-                          className={`flex-1 flex flex-col items-center gap-1.5 py-2.5 px-1 rounded-xl transition-all duration-300 border ${btn.disabled ? 'opacity-40 cursor-not-allowed' : 'cursor-pointer'}`}
+                          title={btn.disabled ? (btn as any).disabledReason : undefined}
+                          className={`flex-1 flex flex-col items-center gap-1.5 py-2.5 px-1 rounded-xl transition-all duration-300 border ${btn.disabled ? 'opacity-50 grayscale cursor-not-allowed' : 'cursor-pointer'}`}
                           style={{
                             color: isActive ? activeColor : '#a3a3a3',
                             borderColor: isActive ? activeColor : 'rgba(212,175,55,0.3)',
@@ -1149,14 +1152,15 @@ export default function EnginePlayground() {
                         <motion.button
                           key={d}
                           onClick={() => setDifficulty(d)}
-                          disabled={isAIThinking || isGameActive}
-                          className={`flex-1 h-9 rounded-lg text-sm font-black transition-all duration-300 border ${(isAIThinking || isGameActive) ? 'opacity-40 cursor-not-allowed' : 'cursor-pointer'} ${difficulty === d
+                          disabled={isAIThinking || !hasNoMoves}
+                          title={(isAIThinking || !hasNoMoves) ? (isGameOver ? 'Game over' : (!hasNoMoves ? 'Reset to change difficulty' : 'AI is thinking')) : undefined}
+                          className={`flex-1 h-9 rounded-lg text-sm font-black transition-all duration-300 border ${(isAIThinking || !hasNoMoves) ? 'opacity-50 grayscale cursor-not-allowed' : 'cursor-pointer'} ${difficulty === d
                               ? 'bg-brand-accent text-white border-brand-accent'
                               : 'bg-black/40 text-text-muted border-[#d4af37]/30 hover:border-[#d4af37]/60 hover:text-white'
                             }`}
                           style={difficulty === d ? { boxShadow: '0 0 15px rgba(212,175,55,0.6)' } : {}}
-                          whileHover={difficulty !== d && !(isAIThinking || isGameActive) ? { boxShadow: '0 0 10px rgba(212,175,55,0.3)' } : undefined}
-                          whileTap={(isAIThinking || isGameActive) ? undefined : { scale: 0.93 }}
+                          whileHover={difficulty !== d && !(isAIThinking || !hasNoMoves) ? { boxShadow: '0 0 10px rgba(212,175,55,0.3)' } : undefined}
+                          whileTap={(isAIThinking || !hasNoMoves) ? undefined : { scale: 0.93 }}
                           aria-pressed={difficulty === d}
                           aria-label={DIFFICULTY_LABELS[d]}
                         >

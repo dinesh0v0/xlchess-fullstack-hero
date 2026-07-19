@@ -1,2 +1,5 @@
 public/
 dist/
+playwright-report/
+test-results/
+.oxlintignore
