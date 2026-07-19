@@ -1,10 +1,10 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 
 export function useScrollDirection() {
   const [scrollDirection, setScrollDirection] = useState<'up' | 'down' | 'top'>('top');
+  const lastScrollYRef = useRef(0);
   
   useEffect(() => {
-    let lastScrollY = window.pageYOffset;
     let ticking = false;
 
     const updateScrollDir = () => {
@@ -12,16 +12,16 @@ export function useScrollDirection() {
 
       if (scrollY < 50) {
         setScrollDirection('top');
-      } else if (Math.abs(scrollY - lastScrollY) < 10) {
+      } else if (Math.abs(scrollY - lastScrollYRef.current) < 10) {
         ticking = false;
         return;
-      } else if (scrollY > lastScrollY) {
+      } else if (scrollY > lastScrollYRef.current) {
         setScrollDirection('down');
       } else {
         setScrollDirection('up');
       }
 
-      lastScrollY = scrollY > 0 ? scrollY : 0;
+      lastScrollYRef.current = scrollY > 0 ? scrollY : 0;
       ticking = false;
     };
 
@@ -37,7 +37,7 @@ export function useScrollDirection() {
     updateScrollDir();
 
     return () => window.removeEventListener('scroll', onScroll);
-  }, [scrollDirection]);
+  }, []); // empty deps: mount once, no listener churn
 
   return scrollDirection;
 }

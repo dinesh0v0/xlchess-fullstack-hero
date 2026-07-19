@@ -93,10 +93,10 @@ export const puzzles: Puzzle[] = [
   {
     id: 10,
     title: 'Queen Sacrifice',
-    fen: 'r4rk1/pp3ppp/8/8/8/8/PP3PPP/R4RK1 w - - 0 1', // Actually back rank mate again for simplicity
-    solution: ['Re1'], // Dummy
+    fen: 'r1bqkb1r/pppp1ppp/2n2n2/4p2Q/2B1P3/8/PPPP1PPP/RNB1K1NR w KQkq - 4 4',
+    solution: ['Qxf7#'],
     difficultyLabel: 'Intermediate (1400)',
-    description: 'Sacrifice the queen to open lines.',
+    description: 'Sacrifice the queen to deliver a swift checkmate.',
     playerColor: 'w'
   },
   {
@@ -147,10 +147,10 @@ export const puzzles: Puzzle[] = [
   {
     id: 16,
     title: 'Zugzwang',
-    fen: '8/8/8/8/8/1k6/p7/K7 w - - 0 1',
-    solution: ['Ka1'], // Actually stalemate if white moves
+    fen: '8/8/8/3k4/3P4/3K4/8/8 w - - 0 1',
+    solution: ['Kc3'],
     difficultyLabel: 'Master (2100)',
-    description: 'Put your opponent in Zugzwang.',
+    description: 'Put your opponent in Zugzwang — any move they make worsens their position.',
     playerColor: 'w'
   },
   {
@@ -165,28 +165,28 @@ export const puzzles: Puzzle[] = [
   {
     id: 18,
     title: 'Windmill',
-    fen: '8/8/8/8/8/8/8/8 w - - 0 1', // Empty
-    solution: ['e4'],
+    fen: '6k1/5p2/6p1/8/7R/8/1r4PP/3B2K1 w - - 0 1',
+    solution: ['Rh8+'],
     difficultyLabel: 'Master (2300)',
-    description: 'Execute a devastating windmill tactic.',
+    description: 'Execute a devastating windmill tactic to gain a winning advantage.',
     playerColor: 'w'
   },
   {
     id: 19,
-    title: 'Mate in 4',
-    fen: '8/8/8/8/8/8/8/8 w - - 0 1', // Empty
-    solution: ['d4'],
+    title: 'Mate in 2',
+    fen: 'r1b1kb1r/pppp1ppp/5q2/4n3/3KP3/2N3PN/PPP4P/R1BQ1B1R b kq - 0 1',
+    solution: ['Bc5+'],
     difficultyLabel: 'Grandmaster (2500)',
-    description: 'Calculate a long forced mating sequence.',
-    playerColor: 'w'
+    description: 'Find the forcing continuation that leads to checkmate.',
+    playerColor: 'b'
   },
   {
     id: 20,
     title: 'Immortal Tactic',
-    fen: '8/8/8/8/8/8/8/8 w - - 0 1', // Empty
-    solution: ['Nf3'],
+    fen: 'r2qk2r/ppp2ppp/2np1n2/2b1p1B1/2B1P1b1/3P1N2/PPP2PPP/RN1QK2R w KQkq - 0 1',
+    solution: ['Bxf7+'],
     difficultyLabel: 'Legendary (2800+)',
-    description: 'Find the legendary brilliancy.',
+    description: 'Find the legendary brilliancy that shatters the opponent\'s position.',
     playerColor: 'w'
   }
 ];

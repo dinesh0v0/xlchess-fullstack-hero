@@ -14,7 +14,7 @@ export default function Home() {
         {/* Section 1: Hero */}
         <HeroContainer />
 
-        {/* Section 2: Build More Than Subscribers */}
+        {/* Section 2: Master Your Game */}
         <SubscribersSection />
 
         {/* Section 3: Engine Playground */}

@@ -161,7 +161,7 @@ const ContactSection = memo(function ContactSection() {
                           type="button"
                           onClick={() => setSubject(sub)}
                           className={`px-5 py-2.5 rounded-full text-sm font-semibold transition-all duration-300 cursor-pointer border ${subject === sub
-                              ? 'bg-brand-accent text-white border-brand-accent shadow-[0_0_15px_rgba(110,99,246,0.3)]'
+                              ? 'bg-brand-accent text-white border-brand-accent shadow-[0_0_15px_rgba(212,175,55,0.3)]'
                               : 'bg-white/5 text-text-secondary border-transparent hover:bg-white/10 hover:text-white'
                             }`}
                         >

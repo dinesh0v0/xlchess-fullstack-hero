@@ -24,5 +24,7 @@ export default defineConfig({
     globals: true,
     setupFiles: ['./src/setupTests.ts'],
     exclude: [...configDefaults.exclude, 'tests/**'],
+    maxWorkers: 1,
+    fileParallelism: false,
   }
 })

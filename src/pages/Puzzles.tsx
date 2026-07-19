@@ -1,4 +1,4 @@
-import { useState, useCallback, useRef, useMemo } from 'react';
+import { useState, useCallback, useRef, useMemo, useEffect } from 'react';
 import { Link } from 'react-router-dom';
 import { Chess } from 'chess.js';
 import { motion, AnimatePresence, LayoutGroup } from 'framer-motion';
@@ -55,9 +55,25 @@ function applyMoveIds(ids: Map<string, string>, mv: { from: string; to: string; 
   if (mv.flags.includes('e')) ids.delete(`${mv.to[0]}${mv.from[1]}`);
 }
 
+/**
+ * Extract the promotion piece from a SAN move string (e.g., "a8=N" -> "n", "e8=Q" -> "q").
+ * Returns 'q' as default if no promotion suffix is found.
+ */
+function getPromotionFromSAN(san: string): 'q' | 'r' | 'b' | 'n' {
+  const match = san.match(/=([QRBN])/i);
+  if (match) {
+    return match[1].toLowerCase() as 'q' | 'r' | 'b' | 'n';
+  }
+  return 'q';
+}
+
 export default function Puzzles() {
   const [puzzleIndex, setPuzzleIndex] = useState(0);
   const puzzle = puzzles[puzzleIndex];
+  
+  // Use a ref to track puzzleIndex for closures (BUG-04 fix)
+  const puzzleIndexRef = useRef(puzzleIndex);
+  puzzleIndexRef.current = puzzleIndex;
   
   const gameRef = useRef(new Chess(puzzle.fen));
   const pieceIdsRef = useRef(initPieceIds(gameRef.current));
@@ -70,6 +86,12 @@ export default function Puzzles() {
   const [status, setStatus] = useState<'playing' | 'success' | 'failed'>('playing');
   const [hintSq, setHintSq] = useState<string | null>(null);
   const [moveStep, setMoveStep] = useState(0);
+
+  // Set page title (BUG-17)
+  useEffect(() => {
+    document.title = `Practice Puzzles | DAChess`;
+    return () => { document.title = 'DAChess | Premium Online Chess Platform'; };
+  }, []);
 
   const loadPuzzle = useCallback((index: number) => {
     setPuzzleIndex(index);
@@ -90,9 +112,9 @@ export default function Puzzles() {
     loadPuzzle(randomIdx);
   };
 
-  const handleReset = () => {
-    loadPuzzle(puzzleIndex);
-  };
+  const handleReset = useCallback(() => {
+    loadPuzzle(puzzleIndexRef.current); // use ref to avoid stale closure (BUG-04)
+  }, [loadPuzzle]);
 
   const handleHint = () => {
     if (status !== 'playing') return;
@@ -116,12 +138,15 @@ export default function Puzzles() {
     let correctMv = null;
     try { correctMv = tempG.move(currentSolutionMove); } catch { /* */ }
 
+    // Detect promotion piece from solution (BUG-13 fix)
+    const promotion = getPromotionFromSAN(currentSolutionMove);
+
     let mv: ReturnType<typeof g.move> | null = null;
-    try { mv = g.move({ from, to, promotion: 'q' }); } catch { return; }
+    try { mv = g.move({ from, to, promotion }); } catch { return; }
     if (!mv) return;
 
     let isCorrect = false;
-    if (correctMv && correctMv.from === mv.from && correctMv.to === mv.to) {
+    if (correctMv && correctMv.from === mv.from && correctMv.to === mv.to && correctMv.promotion === mv.promotion) {
        isCorrect = true;
     }
 
@@ -132,7 +157,7 @@ export default function Puzzles() {
        setTick(t => t + 1);
        setTimeout(() => {
           setStatus(s => s === 'failed' ? 'playing' : s);
-          handleReset();
+          loadPuzzle(puzzleIndexRef.current); // use ref (BUG-04 fix)
        }, 1000);
        return;
     }
@@ -149,7 +174,7 @@ export default function Puzzles() {
     } else {
        setMoveStep(s => s + 1);
     }
-  }, [puzzle, moveStep]);
+  }, [puzzle, moveStep, loadPuzzle]);
 
   const handleSquareClick = useCallback((sq: string) => {
     if (status !== 'playing') return;
@@ -197,6 +222,7 @@ export default function Puzzles() {
       }
     }
     return out;
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- tick is an intentional force-render trigger for gameRef updates
   }, [tick, boardOrientation]);
 
   const boardSquares = useMemo(() => {
@@ -289,7 +315,7 @@ export default function Puzzles() {
                {status === 'success' ? 'Puzzle Solved!' : status === 'failed' ? 'Incorrect Move' : `${puzzle.playerColor === 'w' ? 'White' : 'Black'} to Move`}
             </h2>
             <button onClick={handleHint} disabled={status !== 'playing'} className="px-6 py-2.5 rounded-lg border border-brand-border hover:bg-brand-surface text-text-secondary hover:text-white transition-all font-semibold disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer">Hint</button>
-            <button onClick={handleReset} className="px-6 py-2.5 rounded-lg border border-brand-border hover:bg-brand-surface text-text-secondary hover:text-white transition-all font-semibold cursor-pointer">Reset</button>
+            <button onClick={handleReset} disabled={status === 'failed'} className="px-6 py-2.5 rounded-lg border border-brand-border hover:bg-brand-surface text-text-secondary hover:text-white transition-all font-semibold disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer">Reset</button>
             <button onClick={handleNextPuzzle} className="px-8 py-2.5 rounded-lg bg-brand-accent text-brand-navy hover:bg-brand-accent-light shadow-[0_4px_15px_rgba(212,175,55,0.4)] transition-all font-bold cursor-pointer hover:scale-105 active:scale-95">Next Puzzle</button>
           </div>
         </div>

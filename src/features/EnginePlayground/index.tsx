@@ -160,13 +160,21 @@ export default function EnginePlayground() {
   const activeEvalTurn = useRef<'w' | 'b'>('w');
 
   useEffect(() => {
-    engineRef.current = new Worker('/stockfish.js');
-    engineRef.current.postMessage('uci');
+    try {
+      engineRef.current = new Worker('/stockfish.js');
+      engineRef.current.postMessage('uci');
+    } catch (err) {
+      console.error('[EnginePlayground] Failed to initialize AI engine:', err);
+    }
 
-    evalEngineRef.current = new Worker('/stockfish.js');
-    evalEngineRef.current.postMessage('uci');
-    evalEngineRef.current.postMessage('setoption name Skill Level value 20');
-    evalEngineRef.current.onmessage = (e) => {
+    try {
+      evalEngineRef.current = new Worker('/stockfish.js');
+      evalEngineRef.current.postMessage('uci');
+      evalEngineRef.current.postMessage('setoption name Skill Level value 20');
+    } catch (err) {
+      console.error('[EnginePlayground] Failed to initialize eval engine:', err);
+    }
+    if (evalEngineRef.current) evalEngineRef.current.onmessage = (e) => {
       const msg = e.data;
       if (typeof msg === 'string') {
         if (msg.includes('score cp')) {
@@ -421,6 +429,7 @@ export default function EnginePlayground() {
   /* ── Undo ────────────────────────────────── */
   const handleUndo = useCallback(() => {
     const g = gameRef.current;
+    if (g.history().length < 2) return; // guard: need at least 2 moves to undo
     g.undo(); g.undo(); // undo AI + human
     pieceIdsRef.current = initPieceIds(g);
     setLastMove(null); setSelectedSq(null); setLegalTargets([]);
@@ -433,6 +442,7 @@ export default function EnginePlayground() {
 
   /* ── Hint ────────────────────────────────── */
   const handleHint = useCallback(() => {
+    if (gameStatus) return; // guard: no hints when game is over
     const playerColor = boardOrientation === 'white' ? 'w' : 'b';
     if (gameRef.current.turn() !== playerColor) return;
     const mvs = gameRef.current.moves({ verbose: true }) as Array<{ from: string; to: string }>;
@@ -441,7 +451,7 @@ export default function EnginePlayground() {
     setHintMove({ from: pick.from, to: pick.to });
     setActiveBtn('hint');
     setTimeout(() => { setActiveBtn(null); setHintMove(null); }, 2500);
-  }, [boardOrientation]);
+  }, [boardOrientation, gameStatus]);
 
   /* ── Reset ───────────────────────────────── */
   const handleReset = useCallback(() => {
@@ -590,6 +600,8 @@ export default function EnginePlayground() {
   }, [boardOrientation]);
 
   /* ── Control button config ───────────────── */
+  const isGameOver = !!gameStatus;
+  const hasNoMoves = moveHistory.length === 0;
   const ctrlBtns = [
     {
       id: 'undo', icon: (
@@ -597,6 +609,7 @@ export default function EnginePlayground() {
           <path d="M3 7v6h6" /><path d="M21 17a9 9 0 0 0-9-9 9 9 0 0 0-6 2.3L3 13" />
         </svg>
       ), label: 'Undo', action: handleUndo, color: null,
+      disabled: hasNoMoves || isAIThinking || isGameOver,
     },
     {
       id: 'hint', icon: (
@@ -604,12 +617,14 @@ export default function EnginePlayground() {
           <circle cx="12" cy="12" r="10" /><path d="M12 8v4M12 16h.01" />
         </svg>
       ), label: 'Hint', action: handleHint, color: '#EAB308',
+      disabled: isGameOver || isAIThinking,
     },
     {
       id: 'reset', icon: activeBtn === 'reset'
         ? <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round" className="w-5 h-5 animate-spin-slow"><path d="M3 12a9 9 0 1 0 9-9 9.75 9.75 0 0 0-6.74 2.74L3 8" /><path d="M3 3v5h5" /></svg>
         : <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round" className="w-5 h-5"><path d="M3 12a9 9 0 1 0 9-9 9.75 9.75 0 0 0-6.74 2.74L3 8" /><path d="M3 3v5h5" /></svg>,
       label: 'Reset', action: handleReset, color: '#ef4444',
+      disabled: isAIThinking,
     },
     {
       id: 'more', icon: (
@@ -617,6 +632,7 @@ export default function EnginePlayground() {
           <circle cx="5" cy="12" r="2" /><circle cx="12" cy="12" r="2" /><circle cx="19" cy="12" r="2" />
         </svg>
       ), label: 'More', action: () => setShowMore(v => !v), color: null,
+      disabled: false,
     },
     {
       id: 'mute', icon: isMuted ? (
@@ -631,6 +647,7 @@ export default function EnginePlayground() {
           <path d="M19.07 4.93a10 10 0 0 1 0 14.14M15.54 8.46a5 5 0 0 1 0 7.07"></path>
         </svg>
       ), label: isMuted ? 'Unmute' : 'Mute', action: toggleMute, color: null,
+      disabled: false,
     }
   ];
 
@@ -773,7 +790,8 @@ export default function EnginePlayground() {
                         const isLegal = legalTargets.includes(sq);
                         if (!isLegal) return <div key={sq} />;
                         const pHere = gameRef.current.get(sq as Parameters<typeof gameRef.current.get>[0]);
-                        const isCapture = pHere && pHere.color !== 'w';
+                        const playerColor = boardOrientation === 'white' ? 'w' : 'b';
+                        const isCapture = pHere && pHere.color !== playerColor;
                         return (
                           <div key={sq} className="relative">
                             {isCapture ? (
@@ -820,7 +838,7 @@ export default function EnginePlayground() {
                           <p className="text-white font-black text-lg">{gameStatus}</p>
                           <motion.button
                             onClick={handleReset}
-                            className="mt-4 px-5 py-2 rounded-xl bg-brand-accent text-white text-sm font-bold cursor-pointer relative overflow-hidden animate-shine"
+                            className="mt-4 px-5 py-2 rounded-xl bg-brand-accent text-brand-navy text-sm font-black cursor-pointer relative overflow-hidden animate-shine"
                             whileHover={{ scale: 1.05 }} whileTap={{ scale: 0.97 }}
                           >
                             New Game
@@ -1041,16 +1059,18 @@ export default function EnginePlayground() {
                           id={`ep-${btn.id}`}
                           type="button"
                           onClick={btn.action}
-                          className="flex-1 flex flex-col items-center gap-1.5 py-2.5 px-1 rounded-xl transition-all duration-300 cursor-pointer border"
+                          disabled={btn.disabled}
+                          className={`flex-1 flex flex-col items-center gap-1.5 py-2.5 px-1 rounded-xl transition-all duration-300 border ${btn.disabled ? 'opacity-40 cursor-not-allowed' : 'cursor-pointer'}`}
                           style={{
                             color: isActive ? activeColor : '#a3a3a3',
                             borderColor: isActive ? activeColor : 'rgba(212,175,55,0.3)',
                             background: isActive ? `${activeColor}18` : 'rgba(15,15,15,0.6)',
                           }}
-                          whileHover={{ scale: 1.05, color: '#fff', boxShadow: '0 0 15px rgba(212,175,55,0.5)' }}
-                          whileTap={{ scale: 0.93 }}
+                          whileHover={btn.disabled ? undefined : { scale: 1.05, color: '#fff', boxShadow: '0 0 15px rgba(212,175,55,0.5)' }}
+                          whileTap={btn.disabled ? undefined : { scale: 0.93 }}
                           aria-label={btn.label}
                           aria-pressed={isActive}
+                          aria-disabled={btn.disabled}
                         >
                           {btn.icon}
                           <span className="text-[0.6rem] font-semibold tracking-wide">{btn.label}</span>
@@ -1128,13 +1148,14 @@ export default function EnginePlayground() {
                         <motion.button
                           key={d}
                           onClick={() => setDifficulty(d)}
-                          className={`flex-1 h-9 rounded-lg text-sm font-black transition-all duration-300 cursor-pointer border ${difficulty === d
+                          disabled={isAIThinking}
+                          className={`flex-1 h-9 rounded-lg text-sm font-black transition-all duration-300 border ${isAIThinking ? 'opacity-40 cursor-not-allowed' : 'cursor-pointer'} ${difficulty === d
                               ? 'bg-brand-accent text-white border-brand-accent'
                               : 'bg-black/40 text-text-muted border-[#d4af37]/30 hover:border-[#d4af37]/60 hover:text-white'
                             }`}
                           style={difficulty === d ? { boxShadow: '0 0 15px rgba(212,175,55,0.6)' } : {}}
-                          whileHover={difficulty !== d ? { boxShadow: '0 0 10px rgba(212,175,55,0.3)' } : undefined}
-                          whileTap={{ scale: 0.93 }}
+                          whileHover={difficulty !== d && !isAIThinking ? { boxShadow: '0 0 10px rgba(212,175,55,0.3)' } : undefined}
+                          whileTap={isAIThinking ? undefined : { scale: 0.93 }}
                           aria-pressed={difficulty === d}
                           aria-label={DIFFICULTY_LABELS[d]}
                         >

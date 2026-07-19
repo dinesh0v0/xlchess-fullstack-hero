@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { Link, useLocation } from 'react-router-dom';
 import { useScrollDirection } from '../../hooks/useScrollDirection';
 import Icon from '../../assets/Icon.png';
@@ -8,6 +8,11 @@ export default function NavBar() {
   const scrollDirection = useScrollDirection();
   const location = useLocation();
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
+
+  // Reset mobile menu when route changes (BUG-09)
+  useEffect(() => {
+    setIsMobileMenuOpen(false);
+  }, [location.pathname]);
 
   if (location.pathname !== '/') {
     return null;
@@ -66,7 +71,12 @@ export default function NavBar() {
         </a>
       </div>
 
-      <button className={styles.hamburger} onClick={() => setIsMobileMenuOpen(!isMobileMenuOpen)}>
+      <button
+        className={styles.hamburger}
+        onClick={() => setIsMobileMenuOpen(!isMobileMenuOpen)}
+        aria-label="Toggle navigation menu"
+        aria-expanded={isMobileMenuOpen}
+      >
         <span className={`${styles.hamburgerLine} ${isMobileMenuOpen ? styles.line1Open : ''}`}></span>
         <span className={`${styles.hamburgerLine} ${isMobileMenuOpen ? styles.line2Open : ''}`}></span>
         <span className={`${styles.hamburgerLine} ${isMobileMenuOpen ? styles.line3Open : ''}`}></span>

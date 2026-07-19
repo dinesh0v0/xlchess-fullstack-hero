@@ -7,12 +7,12 @@ const faqs = [
     a: "Yes! DAChess is a premium online chess platform where you can play free chess online instantly. There are no hidden fees or forced subscriptions."
   },
   {
-    q: "Do I need to sign in to play with friends?",
-    a: "No sign-in is required. You can instantly create a game link and share it to play free chess online with your friends in seconds."
+    q: "What chess engine does DAChess use?",
+    a: "We use the powerful Stockfish engine running directly in your browser via Web Workers. This provides ultra-fast, local chess analysis — your moves never leave your device."
   },
   {
-    q: "What chess engine does DAChess use?",
-    a: "We use the powerful Stockfish engine running directly in your browser. This provides ultra-fast, local chess analysis to help you review your games."
+    q: "How do the chess puzzles work?",
+    a: "Our curated puzzle collection tests your tactical vision across all skill levels — from beginner forks to grandmaster-level sacrifices. Each puzzle has one correct solution that you must find."
   },
   {
     q: "Is DAChess available on mobile?",
@@ -41,9 +41,13 @@ const FaqAccordion = memo(function FaqAccordion() {
             aria-expanded={openIndex === idx}
           >
             <span className="font-semibold text-white/90 text-lg">{faq.q}</span>
-            <span className="text-brand-accent font-mono text-xl ml-4">
-              {openIndex === idx ? '−' : '+'}
-            </span>
+            <motion.span
+              className="text-brand-accent font-mono text-xl ml-4 flex-shrink-0"
+              animate={{ rotate: openIndex === idx ? 45 : 0 }}
+              transition={{ duration: 0.2 }}
+            >
+              +
+            </motion.span>
           </button>
           
           <AnimatePresence initial={false}>
