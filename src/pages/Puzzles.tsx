@@ -315,7 +315,7 @@ export default function Puzzles() {
                {status === 'success' ? 'Puzzle Solved!' : status === 'failed' ? 'Incorrect Move' : `${puzzle.playerColor === 'w' ? 'White' : 'Black'} to Move`}
             </h2>
             <button onClick={handleHint} disabled={status !== 'playing'} className="px-6 py-2.5 rounded-lg border border-brand-border hover:bg-brand-surface text-text-secondary hover:text-white transition-all font-semibold disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer">Hint</button>
-            <button onClick={handleReset} disabled={status === 'failed'} className="px-6 py-2.5 rounded-lg border border-brand-border hover:bg-brand-surface text-text-secondary hover:text-white transition-all font-semibold disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer">Reset</button>
+            <button onClick={handleReset} disabled={status === 'failed' || moveStep === 0} className="px-6 py-2.5 rounded-lg border border-brand-border hover:bg-brand-surface text-text-secondary hover:text-white transition-all font-semibold disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer">Reset</button>
             <button onClick={handleNextPuzzle} className="px-8 py-2.5 rounded-lg bg-brand-accent text-brand-navy hover:bg-brand-accent-light shadow-[0_4px_15px_rgba(212,175,55,0.4)] transition-all font-bold cursor-pointer hover:scale-105 active:scale-95">Next Puzzle</button>
           </div>
         </div>
