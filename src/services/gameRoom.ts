@@ -1,4 +1,4 @@
-import { ref, set, get, onValue, update, remove, push, child } from "firebase/database";
+import { ref, set, get, onValue, update, remove, push, child, onDisconnect } from "firebase/database";
 import { db } from "../config/firebase";
 
 export interface ChatMessage {
@@ -29,6 +29,7 @@ export interface RoomData {
   winner?: "white" | "black" | "draw" | null;
   reason?: string;
   drawOffer?: "white" | "black";
+  presence?: { white: boolean; black: boolean };
 }
 
 const ROOMS_REF = "rooms";
@@ -145,6 +146,12 @@ export const gameRoomService = {
       winner,
       reason
     });
+  },
+
+  async setupPresence(pin: string, color: "white" | "black") {
+    const presenceRef = ref(db, `${ROOMS_REF}/${pin}/presence/${color}`);
+    await set(presenceRef, true);
+    onDisconnect(presenceRef).set(false);
   },
 
   async deleteRoom(pin: string) {

@@ -1,5 +1,5 @@
 import { useState, useRef, useMemo, useEffect, useCallback } from 'react';
-import { Link } from 'react-router-dom';
+import { useNavigate } from 'react-router-dom';
 import { Chess, Move } from 'chess.js';
 import type { Square } from 'chess.js';
 import { motion, AnimatePresence } from 'framer-motion';
@@ -57,6 +57,8 @@ export default function OnlinePlay() {
   const [matchState, setMatchState] = useState<'lobby' | 'playing' | 'gameover'>('lobby');
   const [myColor, setMyColor] = useState<'white' | 'black'>('white');
   const [matchTimeControl, setMatchTimeControl] = useState<number>(3);
+  const navigate = useNavigate();
+  const [opponentOnline, setOpponentOnline] = useState(false);
 
   // Timers (in milliseconds)
   const [timers, setTimers] = useState<{ w: number; b: number }>({ w: 3 * 60000, b: 3 * 60000 });
@@ -144,6 +146,51 @@ export default function OnlinePlay() {
     return `${mm}:${ss}.${fraction}`;
   };
 
+  /* ── Navigation Safety & Presence Setup ──────────────── */
+  useEffect(() => {
+    if (matchState === 'playing' && generatedCode) {
+      // Setup presence for ourselves
+      gameRoomService.setupPresence(generatedCode, myColor);
+      
+      // Setup history block
+      window.history.pushState(null, '', window.location.href);
+      
+      const handlePopState = () => {
+        if (window.confirm("You are currently in an active match. Leaving will forfeit the game. Are you sure you want to leave?")) {
+          gameRoomService.endGame(generatedCode, myColor === 'white' ? 'black' : 'white', 'Resignation');
+          navigate('/');
+        } else {
+          window.history.pushState(null, '', window.location.href);
+        }
+      };
+      
+      const handleBeforeUnload = (e: BeforeUnloadEvent) => {
+        e.preventDefault();
+        e.returnValue = '';
+      };
+      
+      window.addEventListener('popstate', handlePopState);
+      window.addEventListener('beforeunload', handleBeforeUnload);
+      
+      return () => {
+        window.removeEventListener('popstate', handlePopState);
+        window.removeEventListener('beforeunload', handleBeforeUnload);
+      };
+    }
+  }, [matchState, generatedCode, myColor, navigate]);
+
+  const handleBackToHome = (e: React.MouseEvent) => {
+    e.preventDefault();
+    if (matchState === 'playing') {
+      if (window.confirm("You are currently in an active match. Leaving will forfeit the game. Are you sure you want to leave?")) {
+        if (generatedCode) gameRoomService.endGame(generatedCode, myColor === 'white' ? 'black' : 'white', 'Resignation');
+        navigate('/');
+      }
+    } else {
+      navigate('/');
+    }
+  };
+
   /* ── Timer & Timeout Logic ──────────────────── */
   useEffect(() => {
     let interval: ReturnType<typeof setInterval>;
@@ -202,6 +249,13 @@ export default function OnlinePlay() {
       }
       if (roomData.lastMoveTimestamp) {
         lastMoveTimestampRef.current = roomData.lastMoveTimestamp;
+      }
+      
+      if (roomData.presence) {
+        const enemyColor = myColor === 'white' ? 'black' : 'white';
+        setOpponentOnline(!!roomData.presence[enemyColor]);
+      } else {
+        setOpponentOnline(false);
       }
 
       if (roomData.moves && matchState === 'playing') {
@@ -612,12 +666,12 @@ export default function OnlinePlay() {
   return (
     <div className="min-h-screen bg-brand-navy flex flex-col text-white font-sans overflow-x-hidden">
       <header className="relative w-full h-20 flex items-center justify-between px-6 lg:px-12 border-b border-brand-border/30 z-10 bg-brand-surface/80 backdrop-blur-md shrink-0">
-        <Link to="/" className="flex items-center gap-2 text-text-secondary hover:text-white transition-colors">
-          <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+        <a href="/" onClick={handleBackToHome} className="flex items-center gap-2 text-text-secondary hover:text-white transition-colors cursor-pointer group">
+          <svg className="w-5 h-5 group-hover:-translate-x-1 transition-transform" fill="none" viewBox="0 0 24 24" stroke="currentColor">
             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 19l-7-7m0 0l7-7m-7 7h18" />
           </svg>
           <span className="text-sm font-semibold tracking-wide">Back to Home</span>
-        </Link>
+        </a>
         <div className="absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 flex flex-col items-center">
           <img src={Icon} alt="Logo" className="h-10 w-auto mb-1 opacity-90" />
           <span className="text-xl font-black tracking-widest text-white leading-none">DACHESS</span>
@@ -910,7 +964,12 @@ export default function OnlinePlay() {
                   <div className="flex-1 flex flex-col">
                     <div className="p-4 border-b border-brand-border/50 flex-1">
                       <div className="flex justify-between items-center mb-2">
-                        <h4 className="text-xs font-bold text-text-secondary uppercase tracking-wider">Enemy</h4>
+                        <h4 className="text-xs font-bold text-text-secondary uppercase tracking-wider flex items-center gap-2">
+                          Enemy
+                          {matchState === 'playing' && (
+                            <span className={`w-2 h-2 rounded-full ${opponentOnline ? 'bg-green-500 animate-pulse' : 'bg-red-500'}`} title={opponentOnline ? 'Online' : 'Offline'} />
+                          )}
+                        </h4>
                         {boardState.material[enemyColorShort] > 0 && <span className="text-sm font-bold text-white">+{boardState.material[enemyColorShort]}</span>}
                       </div>
                       <div className="flex flex-wrap gap-1 min-h-[24px]">
@@ -922,7 +981,12 @@ export default function OnlinePlay() {
 
                     <div className="p-4 border-b border-brand-border/50 flex-1">
                       <div className="flex justify-between items-center mb-2">
-                        <h4 className="text-xs font-bold text-text-secondary uppercase tracking-wider">You</h4>
+                        <h4 className="text-xs font-bold text-text-secondary uppercase tracking-wider flex items-center gap-2">
+                          You
+                          {matchState === 'playing' && (
+                            <span className="w-2 h-2 rounded-full bg-green-500" title="Online" />
+                          )}
+                        </h4>
                         {boardState.material[myColorShort] > 0 && <span className="text-sm font-bold text-white">+{boardState.material[myColorShort]}</span>}
                       </div>
                       <div className="flex flex-wrap gap-1 min-h-[24px]">
