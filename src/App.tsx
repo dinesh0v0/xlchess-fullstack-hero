@@ -3,6 +3,7 @@ import { BrowserRouter as Router, Routes, Route, Navigate, useLocation } from 'r
 import NavBar from './components/NavBar/NavBar';
 import Home from './pages/Home';
 import Puzzles from './pages/Puzzles';
+import OnlinePlay from './pages/OnlinePlay';
 
 /** Scrolls to top on every route change */
 function ScrollToTop() {
@@ -21,6 +22,7 @@ function App() {
       <Routes>
         <Route path="/" element={<Home />} />
         <Route path="/puzzles" element={<Puzzles />} />
+        <Route path="/online-play" element={<OnlinePlay />} />
         <Route path="*" element={<Navigate to="/" replace />} />
       </Routes>
     </Router>

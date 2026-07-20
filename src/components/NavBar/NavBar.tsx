@@ -59,16 +59,9 @@ export default function NavBar() {
         <Link to="/puzzles" className={styles.navLink} onClick={() => setIsMobileMenuOpen(false)}>
           Practice Puzzles
         </Link>
-        <a 
-          className={styles.ctaButton} 
-          onClick={(e) => {
-            e.preventDefault();
-            handleScrollTo('contact');
-          }}
-          href="#contact"
-        >
-          Become a Partner
-        </a>
+        <Link to="/online-play" className={styles.ctaButton} onClick={() => setIsMobileMenuOpen(false)}>
+          Online Play
+        </Link>
       </div>
 
       <button
