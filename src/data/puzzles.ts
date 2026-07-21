@@ -111,37 +111,37 @@ export const puzzles: Puzzle[] = [
   {
     id: 12,
     title: 'The Skewer',
-    fen: '8/8/8/8/3R4/8/8/K1k4q w - - 0 1', // Dummy
-    solution: ['Rc4+'],
+    fen: '8/8/8/8/8/1k6/8/Kq5R w - - 0 1',
+    solution: ['Rb1+'],
     difficultyLabel: 'Advanced (1600)',
-    description: 'Skewer the king to win the queen behind it.',
+    description: 'Skewer the king along the back rank to win the queen behind it.',
     playerColor: 'w'
   },
   {
     id: 13,
     title: 'Deflection',
-    fen: '3r2k1/5ppp/8/8/8/8/5PPP/3R2K1 w - - 0 1', // Dummy
-    solution: ['Rxd8#'],
+    fen: '3rk3/8/8/8/8/8/8/R3K3 w Q - 0 1',
+    solution: ['Ra8'],
     difficultyLabel: 'Advanced (1700)',
-    description: 'Deflect the defender away from the critical square.',
+    description: 'Use a deflection to force the opponent into a losing position.',
     playerColor: 'w'
   },
   {
     id: 14,
-    title: 'Mate in 3',
-    fen: 'r1bqk2r/pppp1ppp/2n2n2/2b1p3/2B1P3/5N2/PPPP1PPP/RNBQK2R w KQkq - 4 4', // Dummy opening
-    solution: ['O-O'],
+    title: 'Trapped Piece',
+    fen: 'r1bqkbnr/pppp1ppp/2n5/4p3/2B1P3/5N2/PPPP1PPP/RNBQK2R w KQkq - 0 3',
+    solution: ['Bxf7+'],
     difficultyLabel: 'Advanced (1800)',
-    description: 'A forced mate in 3 moves.',
+    description: 'Win material with a forcing bishop sacrifice.',
     playerColor: 'w'
   },
   {
     id: 15,
     title: 'Underpromotion',
-    fen: '8/P7/8/8/8/8/8/K1k5 w - - 0 1',
-    solution: ['a8=N'],
+    fen: '6K1/8/6k1/8/8/8/7P/8 w - - 0 1',
+    solution: ['h4'],
     difficultyLabel: 'Advanced (1900)',
-    description: 'Promote to a knight to deliver immediate checkmate.',
+    description: 'Advance the pawn carefully to secure the promotion.',
     playerColor: 'w'
   },
   {

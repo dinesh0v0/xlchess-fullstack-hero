@@ -14,6 +14,12 @@ export default function NavBar() {
     setIsMobileMenuOpen(false);
   }, [location.pathname]);
 
+  useEffect(() => {
+    if (scrollDirection === 'down' || scrollDirection === 'up') {
+      setIsMobileMenuOpen(false);
+    }
+  }, [scrollDirection]);
+
   if (location.pathname !== '/') {
     return null;
   }

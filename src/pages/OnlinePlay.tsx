@@ -2,7 +2,7 @@ import { useState, useRef, useMemo, useEffect, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Chess, Move } from 'chess.js';
 import type { Square } from 'chess.js';
-import { motion, AnimatePresence } from 'framer-motion';
+import { motion, AnimatePresence, LayoutGroup } from 'framer-motion';
 import Icon from '../assets/Icon.png';
 import KingIcon from '../assets/King_Icon.png';
 import { gameRoomService } from '../services/gameRoom';
@@ -65,6 +65,7 @@ export default function OnlinePlay() {
   const syncedTimersRef = useRef<{ w: number; b: number }>({ w: 3 * 60000, b: 3 * 60000 });
   const lastMoveTimestampRef = useRef<number | null>(null);
   const [isTimerRunning, setIsTimerRunning] = useState(false);
+  const [confirmModalConfig, setConfirmModalConfig] = useState<{ onConfirm: () => void; onCancel?: () => void } | null>(null);
 
   // Board State
   const gameRef = useRef(new Chess());
@@ -73,10 +74,13 @@ export default function OnlinePlay() {
   const [validMoves, setValidMoves] = useState<Move[]>([]);
   const [moveLog, setMoveLog] = useState<Array<{ w: string; b: string }>>([]);
   const [lastMove, setLastMove] = useState<{ from: string, to: string } | null>(null);
+  const pieceIdMapRef = useRef<Record<string, string>>({});
 
   // Game Over Details
   const [gameOverDetails, setGameOverDetails] = useState<{ winner: 'white' | 'black' | 'draw' | null, reason: string } | null>(null);
+  const [hideGameOverModal, setHideGameOverModal] = useState(false);
   const [drawOffer, setDrawOffer] = useState<'white' | 'black' | null>(null);
+  const [analysisStack, setAnalysisStack] = useState<Move[]>([]);
 
   // Import State
   const [isImportedGame, setIsImportedGame] = useState(false);
@@ -107,6 +111,7 @@ export default function OnlinePlay() {
   const [leftTab, setLeftTab] = useState<'chat' | 'moves'>('chat');
   const [chatMessage, setChatMessage] = useState('');
   const [chatMessages, setChatMessages] = useState<Array<{ text: string; sender: 'you' | 'enemy' }>>([]);
+  const firebaseMovesRef = useRef<Array<{ san: string; from: string; to: string; color: 'w' | 'b'; timestamp: number }>>([]);
 
   useEffect(() => {
     document.title = 'Online Play | DAChess';
@@ -120,9 +125,9 @@ export default function OnlinePlay() {
     // Load history
     const storedHistory = localStorage.getItem('dachess_match_history');
     if (storedHistory) {
-      try { setMatchHistory(JSON.parse(storedHistory)); } catch(e){}
+      try { setMatchHistory(JSON.parse(storedHistory)); } catch { }
     }
-    
+
     return () => { document.title = 'DAChess | Premium Online Chess Platform'; };
   }, []);
 
@@ -134,6 +139,24 @@ export default function OnlinePlay() {
       audio.play().catch(() => { }); // Catch browser auto-play restrictions
     }
   }, [isMuted]);
+
+  const updatePieceMap = useCallback((from: string, to: string, san: string) => {
+    const newMap = { ...pieceIdMapRef.current };
+    const id = newMap[from];
+    delete newMap[from];
+    if (id) newMap[to] = id;
+    
+    // Handle castling rook movement
+    if (san === 'O-O') {
+      if (to === 'g1') { newMap['f1'] = newMap['h1']; delete newMap['h1']; }
+      else if (to === 'g8') { newMap['f8'] = newMap['h8']; delete newMap['h8']; }
+    } else if (san === 'O-O-O') {
+      if (to === 'c1') { newMap['d1'] = newMap['a1']; delete newMap['a1']; }
+      else if (to === 'c8') { newMap['d8'] = newMap['a8']; delete newMap['a8']; }
+    }
+    
+    pieceIdMapRef.current = newMap;
+  }, []);
 
   const formatTime = (ms: number) => {
     const totalDeciSeconds = Math.max(0, Math.floor(ms / 100));
@@ -156,12 +179,17 @@ export default function OnlinePlay() {
       window.history.pushState(null, '', window.location.href);
       
       const handlePopState = () => {
-        if (window.confirm("You are currently in an active match. Leaving will forfeit the game. Are you sure you want to leave?")) {
-          gameRoomService.endGame(generatedCode, myColor === 'white' ? 'black' : 'white', 'Resignation');
-          navigate('/');
-        } else {
-          window.history.pushState(null, '', window.location.href);
-        }
+        setConfirmModalConfig({
+          onConfirm: () => {
+            if (generatedCode) gameRoomService.endGame(generatedCode, myColor === 'white' ? 'black' : 'white', 'Resignation');
+            navigate('/');
+            setConfirmModalConfig(null);
+          },
+          onCancel: () => {
+            window.history.pushState(null, '', window.location.href);
+            setConfirmModalConfig(null);
+          }
+        });
       };
       
       const handleBeforeUnload = (e: BeforeUnloadEvent) => {
@@ -182,10 +210,16 @@ export default function OnlinePlay() {
   const handleBackToHome = (e: React.MouseEvent) => {
     e.preventDefault();
     if (matchState === 'playing') {
-      if (window.confirm("You are currently in an active match. Leaving will forfeit the game. Are you sure you want to leave?")) {
-        if (generatedCode) gameRoomService.endGame(generatedCode, myColor === 'white' ? 'black' : 'white', 'Resignation');
-        navigate('/');
-      }
+      setConfirmModalConfig({
+        onConfirm: () => {
+          if (generatedCode) gameRoomService.endGame(generatedCode, myColor === 'white' ? 'black' : 'white', 'Resignation');
+          navigate('/');
+          setConfirmModalConfig(null);
+        },
+        onCancel: () => {
+          setConfirmModalConfig(null);
+        }
+      });
     } else {
       navigate('/');
     }
@@ -220,6 +254,31 @@ export default function OnlinePlay() {
     }
     return () => clearInterval(interval);
   }, [matchState, isTimerRunning, generatedCode]);
+
+  /* ── Start Match ─────────────────────── */
+  const startGame = useCallback((color: 'white' | 'black', tcMinutes: number, fen?: string) => {
+    if (fen) gameRef.current.load(fen);
+    else gameRef.current.reset();
+
+    setTriggerRender(prev => prev + 1);
+    setMyColor(color);
+    setMatchTimeControl(tcMinutes);
+    setTimers({ w: tcMinutes * 60000, b: tcMinutes * 60000 });
+    syncedTimersRef.current = { w: tcMinutes * 60000, b: tcMinutes * 60000 };
+    lastMoveTimestampRef.current = null;
+    setMatchState('playing');
+    setIsTimerRunning(true);
+    setMoveLog([]);
+    setChatMessages([]);
+    setSelectedSquare(null);
+    setValidMoves([]);
+    setLastMove(null);
+    setGameOverDetails(null);
+    setHideGameOverModal(false);
+    setDrawOffer(null);
+    setActiveModal(null);
+    setRoomState('idle');
+  }, []);
 
   /* ── Firebase Room Listener ──────────────────── */
   useEffect(() => {
@@ -258,39 +317,49 @@ export default function OnlinePlay() {
         setOpponentOnline(false);
       }
 
-      if (roomData.moves && matchState === 'playing') {
+      // Store Firebase moves for later replay (used by Review Board)
+      if (roomData.moves) {
         const moves = Object.values(roomData.moves).sort((a, b) => a.timestamp - b.timestamp);
+        firebaseMovesRef.current = moves;
 
-        if (roomData.fen && roomData.fen !== gameRef.current.fen()) {
-          try {
-            const prevTurn = gameRef.current.turn();
-            gameRef.current.load(roomData.fen);
-            const currentTurn = gameRef.current.turn();
+        if (matchState === 'playing') {
+          if (roomData.fen && roomData.fen !== gameRef.current.fen()) {
+            try {
+              const prevTurn = gameRef.current.turn();
+              // Replay all moves to preserve history for analysis
+              const newChess = new Chess();
+              for (const m of moves) {
+                newChess.move(m.san);
+              }
+              gameRef.current = newChess;
+              const currentTurn = gameRef.current.turn();
 
-            // Play sound if opponent moved
-            if (prevTurn !== currentTurn && currentTurn === (myColor === 'white' ? 'w' : 'b')) {
-              const lastMoveObj = moves[moves.length - 1];
-              setLastMove({ from: lastMoveObj.from, to: lastMoveObj.to });
+              // Play sound if opponent moved
+              if (prevTurn !== currentTurn && currentTurn === (myColor === 'white' ? 'w' : 'b')) {
+                const lastMoveObj = moves[moves.length - 1];
+                updatePieceMap(lastMoveObj.from, lastMoveObj.to, lastMoveObj.san);
+                setLastMove({ from: lastMoveObj.from, to: lastMoveObj.to });
 
-              if (gameRef.current.inCheck()) playSound('check');
-              else if (lastMoveObj.san.includes('x')) playSound('capture');
-              else playSound('move');
-            }
-            setTriggerRender(prev => prev + 1);
-          } catch (e) { }
-        }
-
-        const newMoveLog: Array<{ w: string; b: string }> = [];
-        for (let i = 0; i < moves.length; i++) {
-          const move = moves[i];
-          if (move.color === 'w') {
-            newMoveLog.push({ w: move.san, b: '' });
-          } else {
-            if (newMoveLog.length > 0) newMoveLog[newMoveLog.length - 1].b = move.san;
-            else newMoveLog.push({ w: '', b: move.san });
+                if (gameRef.current.inCheck()) playSound('check');
+                else if (lastMoveObj.san.includes('x')) playSound('capture');
+                else playSound('move');
+              }
+              setTriggerRender(prev => prev + 1);
+            } catch { }
           }
+
+          const newMoveLog: Array<{ w: string; b: string }> = [];
+          for (let i = 0; i < moves.length; i++) {
+            const move = moves[i];
+            if (move.color === 'w') {
+              newMoveLog.push({ w: move.san, b: '' });
+            } else {
+              if (newMoveLog.length > 0) newMoveLog[newMoveLog.length - 1].b = move.san;
+              else newMoveLog.push({ w: '', b: move.san });
+            }
+          }
+          setMoveLog(newMoveLog);
         }
-        setMoveLog(newMoveLog);
       }
 
       if (roomData.chat) {
@@ -336,31 +405,7 @@ export default function OnlinePlay() {
     });
 
     return () => unsubscribe();
-  }, [generatedCode, roomState, matchState, myColor, playSound]);
-
-  /* ── Start Match ─────────────────────── */
-  const startGame = useCallback((color: 'white' | 'black', tcMinutes: number, fen?: string) => {
-    if (fen) gameRef.current.load(fen);
-    else gameRef.current.reset();
-
-    setTriggerRender(prev => prev + 1);
-    setMyColor(color);
-    setMatchTimeControl(tcMinutes);
-    setTimers({ w: tcMinutes * 60000, b: tcMinutes * 60000 });
-    syncedTimersRef.current = { w: tcMinutes * 60000, b: tcMinutes * 60000 };
-    lastMoveTimestampRef.current = null;
-    setMatchState('playing');
-    setIsTimerRunning(true);
-    setMoveLog([]);
-    setChatMessages([]);
-    setSelectedSquare(null);
-    setValidMoves([]);
-    setLastMove(null);
-    setGameOverDetails(null);
-    setDrawOffer(null);
-    setActiveModal(null);
-    setRoomState('idle');
-  }, []);
+  }, [generatedCode, roomState, matchState, myColor, playSound, startGame, updatePieceMap]);
 
   /* ── Checkmate & Draw Handlers ─────────────────── */
   const checkGameEndConditions = useCallback(async () => {
@@ -383,6 +428,7 @@ export default function OnlinePlay() {
     try {
       const result = gameRef.current.move(moveStr);
       if (result) {
+        updatePieceMap(result.from, result.to, result.san);
         setTriggerRender(prev => prev + 1);
         setSelectedSquare(null);
         setValidMoves([]);
@@ -421,7 +467,7 @@ export default function OnlinePlay() {
     } catch (e) {
       console.warn("Invalid move attempted", e);
     }
-  }, [generatedCode, playSound, checkGameEndConditions]);
+  }, [generatedCode, playSound, checkGameEndConditions, updatePieceMap]);
 
   const handleSquareClick = useCallback((square: string) => {
     if (matchState !== 'playing' || !isTimerRunning) return;
@@ -450,18 +496,24 @@ export default function OnlinePlay() {
 
   /* ── Room Creation Flow ──────────────── */
   const handleCreateRoom = useCallback(async () => {
+    if (roomState !== 'idle') return;
     setRoomState('creating');
     setNetworkError(null);
-    let code: string;
-    let exists = true;
-    do {
-      code = String(Math.floor(1000 + Math.random() * 9000));
-      exists = await gameRoomService.checkRoomExists(code);
-    } while (exists);
-    await gameRoomService.createRoom(code, timeControl, selectedColor);
-    setGeneratedCode(code);
-    setRoomState('waiting');
-  }, [selectedColor, timeControl]);
+    try {
+      let code: string;
+      let exists = true;
+      do {
+        code = String(Math.floor(1000 + Math.random() * 9000));
+        exists = await gameRoomService.checkRoomExists(code);
+      } while (exists);
+      await gameRoomService.createRoom(code, timeControl, selectedColor);
+      setGeneratedCode(code);
+      setRoomState('waiting');
+    } catch {
+      setNetworkError("Connection error. Please try again.");
+      setRoomState('idle');
+    }
+  }, [selectedColor, timeControl, roomState]);
 
   const cancelRoom = useCallback(async () => {
     if (generatedCode) await gameRoomService.deleteRoom(generatedCode);
@@ -470,46 +522,68 @@ export default function OnlinePlay() {
   }, [generatedCode]);
 
   /* ── Room Joining Flow ───────────────── */
-  const handleJoinRoom = useCallback(async () => {
-    const code = joinCode.join('');
+  const handleJoinRoom = useCallback(async (overrideCode?: string | React.MouseEvent) => {
+    if (roomState === 'joining' || roomState === 'connected') return;
+    const code = typeof overrideCode === 'string' ? overrideCode : joinCode.join('');
     if (code.length !== 4) return;
     setRoomState('joining');
     setNetworkError(null);
-    const result = await gameRoomService.joinRoom(code);
-    if (!result.success) {
-      setNetworkError(result.error || 'Failed to join room');
-      setRoomState('idle');
-      return;
-    }
-    setGeneratedCode(code);
-    setRoomState('connected');
+    try {
+      const result = await gameRoomService.joinRoom(code);
+      if (!result.success) {
+        setNetworkError(result.error || 'Failed to join room');
+        setRoomState('idle');
+        return;
+      }
+      setGeneratedCode(code);
+      setRoomState('connected');
 
-    await new Promise(res => setTimeout(res, 600));
-    const joinerColor = result.hostColor === 'white' ? 'black' : 'white';
-    startGame(joinerColor, timeControl, result.fen);
-    playSound('start');
-  }, [joinCode, timeControl, startGame, playSound]);
+      await new Promise(res => setTimeout(res, 600));
+      const joinerColor = result.hostColor === 'white' ? 'black' : 'white';
+      startGame(joinerColor, timeControl, result.fen);
+      playSound('start');
+    } catch {
+      setNetworkError("Connection error. Please try again.");
+      setRoomState('idle');
+    }
+  }, [joinCode, timeControl, startGame, playSound, roomState]);
 
   const handleJoinCodeChange = useCallback((index: number, value: string) => {
     if (value.length > 1) value = value[value.length - 1];
     if (value && !/^\d$/.test(value)) return;
-    setJoinCode(prev => { const next = [...prev]; next[index] = value; return next; });
+    
+    const nextCode = [...joinCode];
+    nextCode[index] = value;
+    setJoinCode(nextCode);
     setNetworkError(null);
-    if (value && index < 3) joinInputRefs.current[index + 1]?.focus();
-  }, []);
+
+    if (value && index < 3) {
+      joinInputRefs.current[index + 1]?.focus();
+    } else if (!nextCode.some(d => !d) && roomState === 'idle') {
+      handleJoinRoom(nextCode.join(''));
+    }
+  }, [joinCode, roomState, handleJoinRoom]);
 
   const handleJoinCodePaste = useCallback((e: React.ClipboardEvent) => {
     e.preventDefault();
     const pasted = e.clipboardData.getData('text').replace(/\D/g, '').slice(0, 4);
     const digits = pasted.split('');
-    setJoinCode(prev => { const next = [...prev]; digits.forEach((d, i) => { next[i] = d; }); return next; });
+    const nextCode = [...joinCode];
+    digits.forEach((d, i) => { nextCode[i] = d; });
+    
+    setJoinCode(nextCode);
     setNetworkError(null);
     if (digits.length > 0) joinInputRefs.current[Math.min(digits.length, 3)]?.focus();
-  }, []);
+
+    if (!nextCode.some(d => !d) && roomState === 'idle') {
+      handleJoinRoom(nextCode.join(''));
+    }
+  }, [joinCode, roomState, handleJoinRoom]);
 
   const handleJoinCodeKeyDown = useCallback((index: number, e: React.KeyboardEvent) => {
     if (e.key === 'Backspace' && !joinCode[index] && index > 0) joinInputRefs.current[index - 1]?.focus();
-  }, [joinCode]);
+    if (e.key === 'Enter' && !joinCode.some(d => !d) && roomState === 'idle') handleJoinRoom();
+  }, [joinCode, roomState, handleJoinRoom]);
 
   const handleChatSend = useCallback(async () => {
     if (!chatMessage.trim() || !generatedCode) return;
@@ -526,6 +600,7 @@ export default function OnlinePlay() {
     setSelectedColor('white');
     setTimeControl(3);
     setJoinCode(['', '', '', '']);
+    setAnalysisStack([]);
   }, []);
 
   const closeModal = useCallback(() => {
@@ -559,10 +634,72 @@ export default function OnlinePlay() {
     gameRef.current.reset();
     setMoveLog([]);
     setChatMessages([]);
+    setAnalysisStack([]);
     setTriggerRender(prev => prev + 1);
     setIsImportedGame(false);
     setBoardFlipped(false);
   }, [generatedCode]);
+
+  const syncBoardVisuals = useCallback((stack: Move[]) => {
+    const history = gameRef.current.history({ verbose: true }) as Move[];
+    const fullHistory = [...history, ...stack];
+    const newMoveLog: Array<{ w: string; b: string }> = [];
+    for (let i = 0; i < fullHistory.length; i++) {
+      if (fullHistory[i].color === 'w') {
+        newMoveLog.push({ w: fullHistory[i].san, b: '' });
+      } else {
+        if (newMoveLog.length > 0) newMoveLog[newMoveLog.length - 1].b = fullHistory[i].san;
+      }
+    }
+    setMoveLog(newMoveLog);
+
+    if (history.length > 0) {
+      const last = history[history.length - 1];
+      setLastMove({ from: last.from, to: last.to });
+    } else {
+      setLastMove(null);
+    }
+    setTriggerRender(p => p + 1);
+  }, []);
+
+  const reverseUpdatePieceMap = useCallback((move: Move) => {
+    const newMap = { ...pieceIdMapRef.current };
+    const id = newMap[move.to];
+    delete newMap[move.to];
+    if (id) newMap[move.from] = id;
+    
+    // Handle castling rook reverse movement
+    if (move.san === 'O-O') {
+      if (move.to === 'g1') { newMap['h1'] = newMap['f1']; delete newMap['f1']; }
+      else if (move.to === 'g8') { newMap['h8'] = newMap['f8']; delete newMap['f8']; }
+    } else if (move.san === 'O-O-O') {
+      if (move.to === 'c1') { newMap['a1'] = newMap['d1']; delete newMap['d1']; }
+      else if (move.to === 'c8') { newMap['a8'] = newMap['d8']; delete newMap['d8']; }
+    }
+    
+    pieceIdMapRef.current = newMap;
+  }, []);
+
+  const handlePrevMove = useCallback(() => {
+    const move = gameRef.current.undo();
+    if (move) {
+      const nextStack = [move, ...analysisStack];
+      setAnalysisStack(nextStack);
+      reverseUpdatePieceMap(move);
+      syncBoardVisuals(nextStack);
+    }
+  }, [analysisStack, reverseUpdatePieceMap, syncBoardVisuals]);
+
+  const handleNextMove = useCallback(() => {
+    if (analysisStack.length > 0) {
+      const move = analysisStack[0];
+      gameRef.current.move(move);
+      const nextStack = analysisStack.slice(1);
+      setAnalysisStack(nextStack);
+      updatePieceMap(move.from, move.to, move.san);
+      syncBoardVisuals(nextStack);
+    }
+  }, [analysisStack, updatePieceMap, syncBoardVisuals]);
 
   const handleImportGame = useCallback(() => {
     try {
@@ -572,6 +709,19 @@ export default function OnlinePlay() {
       
       const history = chess.history({ verbose: true }) as Move[];
       const newMoveLog: Array<{ w: string; b: string }> = [];
+      
+      // Rebuild pieceIdMapRef from final position
+      pieceIdMapRef.current = {};
+      const board = chess.board();
+      for (let r = 0; r < 8; r++) {
+        for (let c = 0; c < 8; c++) {
+          const p = board[r][c];
+          if (p) {
+            pieceIdMapRef.current[p.square] = `${p.color}-${p.type}-${p.square}-${Math.random()}`;
+          }
+        }
+      }
+      
       for (let i = 0; i < history.length; i++) {
         if (history[i].color === 'w') {
           newMoveLog.push({ w: history[i].san, b: '' });
@@ -580,6 +730,8 @@ export default function OnlinePlay() {
         }
       }
       setMoveLog(newMoveLog);
+      setAnalysisStack([]);
+      setLastMove(null);
       
       setMatchState('lobby');
       setLeftTab('moves');
@@ -588,7 +740,7 @@ export default function OnlinePlay() {
       setPgnError(null);
       setIsImportedGame(true);
       setTriggerRender(prev => prev + 1);
-    } catch (e) {
+    } catch {
       setPgnError("Invalid PGN format. Please check the text.");
     }
   }, [pgnText]);
@@ -609,7 +761,7 @@ export default function OnlinePlay() {
 
   // Derived Board State
   const boardState = useMemo(() => {
-    const out: Array<{ color: Color; type: string; square: string; row: number; col: number }> = [];
+    const out: Array<{ id: string; color: Color; type: string; square: string; row: number; col: number }> = [];
     const board = gameRef.current.board();
 
     // Material Advantage Calculation
@@ -620,9 +772,15 @@ export default function OnlinePlay() {
       for (let c = 0; c < 8; c++) {
         const p = board[r][c];
         if (p) {
+          let id = pieceIdMapRef.current[p.square];
+          if (!id) {
+            id = `${p.color}-${p.type}-${p.square}-${Math.random()}`;
+            pieceIdMapRef.current[p.square] = id;
+          }
+
           const visualRow = boardOrientation === 'white' ? r : 7 - r;
           const visualCol = boardOrientation === 'white' ? c : 7 - c;
-          out.push({ color: p.color as Color, type: p.type, square: p.square, row: visualRow, col: visualCol });
+          out.push({ id, color: p.color as Color, type: p.type, square: p.square, row: visualRow, col: visualCol });
 
           counts[p.color] += PIECE_VALUES[p.type] || 0;
           piecesMap[p.color].push(p.type);
@@ -656,12 +814,34 @@ export default function OnlinePlay() {
       captured,
       checkSquare
     };
+  // triggerRender forces this memo to recompute when gameRef.current mutates (refs don't trigger re-renders)
+  // oxlint-disable-next-line react-hooks/exhaustive-deps
   }, [triggerRender, boardOrientation]);
 
   const year = new Date().getFullYear();
   const currentTurn = gameRef.current.turn();
   const myColorShort = myColor === 'white' ? 'w' : 'b';
   const enemyColorShort = myColor === 'white' ? 'b' : 'w';
+
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') {
+        if (confirmModalConfig) {
+          confirmModalConfig.onCancel?.();
+        } else if (activeModal) {
+          closeModal();
+        } else if (importExpanded) {
+          setImportExpanded(false);
+        }
+      } else if (e.key === 'Enter') {
+        if (activeModal === 'play' && playTab === 'create' && roomState === 'idle') {
+          handleCreateRoom();
+        }
+      }
+    };
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [confirmModalConfig, activeModal, closeModal, importExpanded, playTab, roomState, handleCreateRoom]);
 
   return (
     <div className="min-h-screen bg-brand-navy flex flex-col text-white font-sans overflow-x-hidden">
@@ -724,7 +904,7 @@ export default function OnlinePlay() {
                     <img src={KingIcon} alt="Chess" className="w-10 h-10 rounded-lg object-cover bg-white" />
                     <div>
                       <h2 className="text-[1.05rem] font-bold text-white leading-tight">{matchTimeControl} Minutes Game</h2>
-                      <p className="text-xs text-brand-accent/80 font-medium mt-0.5">Move {Math.floor(moveLog.length) + (currentTurn === 'w' ? 1 : 0)} | You as {myColor === 'white' ? 'White' : 'Black'}</p>
+                      <p className="text-xs text-brand-accent/80 font-medium mt-0.5">Move {Math.floor(gameRef.current.history().length / 2) + 1} | You as {myColor === 'white' ? 'White' : 'Black'}</p>
                     </div>
                   </div>
                   <p className="text-[1.35rem] font-black text-white leading-tight mb-5 mt-2 relative z-10">
@@ -789,13 +969,21 @@ export default function OnlinePlay() {
                     {moveLog.length === 0 ? (
                       <div className="h-full flex items-center justify-center"><p className="text-text-muted text-sm text-center">No moves yet.<br />Start a game to see move history.</p></div>
                     ) : (
-                      moveLog.map((m, i) => (
-                        <div key={i} className="flex gap-4 py-1 hover:bg-white/5 px-2 rounded transition-colors">
-                          <span className="text-text-secondary w-6 text-right">{i + 1}.</span>
-                          <span className="text-white w-14 font-semibold">{m.w}</span>
-                          <span className="text-white/70 w-14">{m.b}</span>
-                        </div>
-                      ))
+                      moveLog.map((m, i) => {
+                        const currentHalfMoveIndex = gameRef.current.history().length - 1;
+                        const wIndex = i * 2;
+                        const bIndex = i * 2 + 1;
+                        const isWActive = wIndex === currentHalfMoveIndex;
+                        const isBActive = bIndex === currentHalfMoveIndex;
+                        
+                        return (
+                          <div key={i} className={`flex gap-4 py-1.5 px-2 rounded transition-colors ${isWActive || isBActive ? 'bg-white/10' : 'hover:bg-white/5'}`}>
+                            <span className="text-text-secondary w-6 text-right">{i + 1}.</span>
+                            <span className={`w-14 font-semibold ${isWActive ? 'text-brand-accent drop-shadow-md' : 'text-white'}`}>{m.w}</span>
+                            <span className={`w-14 ${isBActive ? 'text-brand-accent drop-shadow-md font-semibold' : 'text-white/70'}`}>{m.b}</span>
+                          </div>
+                        );
+                      })
                     )}
                   </motion.div>
                 )}
@@ -818,26 +1006,56 @@ export default function OnlinePlay() {
 
             {/* Game Over Modal Overlay inside the board area */}
             <AnimatePresence>
-              {matchState === 'gameover' && gameOverDetails && (
+              {matchState === 'gameover' && gameOverDetails && !hideGameOverModal && (
                 <motion.div
                   initial={{ opacity: 0, scale: 0.9, y: 20 }}
                   animate={{ opacity: 1, scale: 1, y: 0 }}
                   exit={{ opacity: 0, scale: 0.9 }}
-                  className="absolute z-40 top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 bg-brand-surface border border-brand-border p-6 rounded-2xl shadow-2xl flex flex-col items-center text-center min-w-[300px]"
+                  className="absolute z-40 top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 bg-brand-surface border border-brand-border p-6 rounded-2xl shadow-2xl flex flex-col items-center text-center min-w-[320px]"
                 >
                   <h2 className="text-3xl font-black text-white mb-1">
                     {gameOverDetails.winner === 'draw' ? 'Draw!' : (gameOverDetails.winner === myColor ? 'You Won!' : 'You Lost!')}
                   </h2>
                   <p className="text-brand-accent font-semibold mb-6 uppercase tracking-widest">{gameOverDetails.reason}</p>
-                  <button onClick={exitGameToLobby} className="w-full py-3 rounded-lg bg-brand-accent text-brand-navy font-bold hover:bg-brand-accent-light transition-colors shadow-lg">
-                    Back to Lobby
-                  </button>
+                  
+                  <div className="flex w-full gap-3">
+                    <button onClick={() => {
+                      // Rebuild chess engine with full history so undo() works for analysis
+                      const moves = firebaseMovesRef.current;
+                      if (moves.length > 0) {
+                        const newChess = new Chess();
+                        pieceIdMapRef.current = {};
+                        for (const m of moves) {
+                          newChess.move(m.san);
+                        }
+                        gameRef.current = newChess;
+                        // Rebuild pieceIdMapRef from final position
+                        const board = newChess.board();
+                        for (let r = 0; r < 8; r++) {
+                          for (let c = 0; c < 8; c++) {
+                            const p = board[r][c];
+                            if (p) {
+                              pieceIdMapRef.current[p.square] = `${p.color}-${p.type}-${p.square}-${Math.random()}`;
+                            }
+                          }
+                        }
+                        setAnalysisStack([]);
+                        setTriggerRender(prev => prev + 1);
+                      }
+                      setHideGameOverModal(true);
+                    }} className="flex-1 py-3 rounded-lg border border-brand-accent text-brand-accent font-bold hover:bg-brand-accent hover:text-brand-navy transition-colors">
+                      Review Board
+                    </button>
+                    <button onClick={exitGameToLobby} className="flex-1 py-3 rounded-lg bg-brand-accent text-brand-navy font-bold hover:bg-brand-accent-light transition-colors shadow-lg">
+                      Back to Lobby
+                    </button>
+                  </div>
                 </motion.div>
               )}
             </AnimatePresence>
 
             <motion.div
-              className={`w-full max-w-[560px] aspect-square relative rounded-lg overflow-hidden border border-[#d4af37]/20 ${matchState === 'gameover' ? 'opacity-60 blur-sm pointer-events-none' : ''} transition-all duration-500`}
+              className={`w-full max-w-[560px] max-h-full aspect-square relative rounded-lg overflow-hidden border border-[#d4af37]/20 ${matchState === 'gameover' && !hideGameOverModal ? 'opacity-60 blur-sm pointer-events-none' : ''} transition-all duration-500 mx-auto`}
               style={{ boxShadow: '0 20px 50px rgba(0,0,0,0.7), 0 0 30px rgba(212,175,55,0.15)' }}
               initial={{ opacity: 0, scale: 0.96 }}
               animate={{ opacity: 1, scale: 1 }}
@@ -890,32 +1108,63 @@ export default function OnlinePlay() {
                 })}
               </div>
 
-              {boardState.pieces.map(p => (
-                <div key={`${p.square}-${p.type}-${p.color}`} className="absolute flex items-center justify-center pointer-events-none select-none z-10 transition-all duration-200" style={{ width: '12.5%', height: '12.5%', left: `${p.col * 12.5}%`, top: `${p.row * 12.5}%` }}>
-                  <img src={PIECE_IMAGES[p.color][p.type]} alt={`${p.color} ${p.type}`} className="w-[90%] h-[90%] object-contain drop-shadow-md" />
-                </div>
-              ))}
+              <LayoutGroup id="online-board">
+                <AnimatePresence>
+                  {boardState.pieces.map(p => (
+                    <motion.div
+                      key={p.id}
+                      layoutId={p.id}
+                      layout
+                      className="absolute flex items-center justify-center pointer-events-none select-none z-10"
+                      style={{ width: '12.5%', height: '12.5%', left: `${p.col * 12.5}%`, top: `${p.row * 12.5}%` }}
+                      transition={{ layout: { type: 'spring', stiffness: 380, damping: 28, mass: 0.85 } }}
+                    >
+                      <img
+                        src={PIECE_IMAGES[p.color][p.type]}
+                        alt={`${p.color} ${p.type}`}
+                        className="w-[90%] h-[90%] object-contain drop-shadow-md"
+                        style={{
+                          filter: selectedSquare === p.square ? 'drop-shadow(0 0 10px rgba(212,175,55,0.9))' : 'none',
+                          transition: 'filter 0.15s ease',
+                        }}
+                      />
+                    </motion.div>
+                  ))}
+                </AnimatePresence>
+              </LayoutGroup>
               <div className="absolute inset-0 pointer-events-none bg-black/5 mix-blend-overlay" />
             </motion.div>
 
             {/* Contextual Import Controls */}
             <AnimatePresence>
               {matchState === 'lobby' && isImportedGame && (
-                <motion.div initial={{ opacity: 0, y: -10 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -10 }} className="w-full max-w-[560px] mt-4 flex justify-end gap-3">
-                  <button onClick={() => setBoardFlipped(!boardFlipped)} className="px-5 py-2.5 rounded-lg bg-brand-surface border border-brand-border/50 text-white font-bold text-sm hover:bg-brand-surface-light transition-colors flex items-center gap-2">
-                    <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" /></svg>
-                    Flip Board
-                  </button>
-                  <button onClick={() => {
-                    gameRef.current.reset();
-                    setMoveLog([]);
-                    setTriggerRender(prev => prev + 1);
-                    setIsImportedGame(false);
-                    setBoardFlipped(false);
-                  }} className="px-5 py-2.5 rounded-lg bg-red-500/10 border border-red-500/30 text-red-400 font-bold text-sm hover:bg-red-500/20 transition-colors flex items-center gap-2">
-                    <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" /></svg>
-                    Reset Board
-                  </button>
+                <motion.div initial={{ opacity: 0, y: -10 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -10 }} className="w-full max-w-[560px] mt-4 flex justify-between gap-3">
+                  <div className="flex bg-brand-surface border border-brand-border/50 rounded-lg overflow-hidden">
+                      <button onClick={handlePrevMove} disabled={gameRef.current.history().length === 0} className="w-14 flex items-center justify-center text-white hover:bg-white/5 transition-colors border-r border-brand-border/50 cursor-pointer disabled:opacity-30 disabled:cursor-not-allowed">
+                        <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M15 19l-7-7 7-7" /></svg>
+                      </button>
+                      <button onClick={handleNextMove} disabled={analysisStack.length === 0} className="w-14 flex items-center justify-center text-white hover:bg-white/5 transition-colors cursor-pointer disabled:opacity-30 disabled:cursor-not-allowed">
+                        <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M9 5l7 7-7 7" /></svg>
+                      </button>
+                  </div>
+
+                  <div className="flex justify-end gap-3 flex-1">
+                    <button onClick={() => setBoardFlipped(!boardFlipped)} className="px-5 py-2.5 rounded-lg bg-brand-surface border border-brand-border/50 text-white font-bold text-sm hover:bg-brand-surface-light transition-colors flex items-center gap-2">
+                      <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" /></svg>
+                      Flip Board
+                    </button>
+                    <button onClick={() => {
+                      gameRef.current.reset();
+                      setMoveLog([]);
+                      setAnalysisStack([]);
+                      setTriggerRender(prev => prev + 1);
+                      setIsImportedGame(false);
+                      setBoardFlipped(false);
+                    }} className="px-5 py-2.5 rounded-lg bg-red-500/10 border border-red-500/30 text-red-400 font-bold text-sm hover:bg-red-500/20 transition-colors flex items-center gap-2">
+                      <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" /></svg>
+                      Reset Board
+                    </button>
+                  </div>
                 </motion.div>
               )}
             </AnimatePresence>
@@ -997,16 +1246,31 @@ export default function OnlinePlay() {
                     </div>
                   </div>
 
-                  <div className="flex">
-                    <button onClick={handleDraw} disabled={matchState === 'gameover' || drawOffer === myColor} className={`flex-1 flex items-center justify-center gap-2 py-4 text-sm font-bold transition-colors border-r border-brand-border/50 cursor-pointer disabled:opacity-50 ${drawOffer && drawOffer !== myColor ? 'bg-green-500/20 text-green-400 hover:bg-green-500/30' : 'text-white hover:bg-white/5'}`}>
-                      <svg className="w-4 h-4 text-brand-accent" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M8 7h12m0 0l-4-4m4 4l-4 4m0 6H4m0 0l4 4m-4-4l4-4" /></svg>
-                      {drawOffer === myColor ? 'Draw Offered' : (drawOffer && drawOffer !== myColor ? 'Accept Draw' : 'Offer Draw')}
-                    </button>
-                    <button onClick={handleResign} disabled={matchState === 'gameover'} className="flex-1 flex items-center justify-center gap-2 py-4 text-sm font-bold text-white hover:bg-red-500/10 hover:text-red-400 transition-colors cursor-pointer disabled:opacity-50">
-                      <svg className="w-4 h-4 text-current" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M3 21v-4m0 0V5a2 2 0 012-2h6.5l1 1H21l-3 6 3 6h-8.5l-1-1H5a2 2 0 00-2 2zm9-13.5V9" /></svg>
-                      Resign
-                    </button>
-                  </div>
+                  {matchState === 'gameover' && hideGameOverModal ? (
+                    <div className="flex border-t border-brand-border/50">
+                      <button onClick={handlePrevMove} disabled={gameRef.current.history().length === 0} className="w-16 flex items-center justify-center py-4 text-sm font-bold text-white hover:bg-white/5 transition-colors border-r border-brand-border/50 cursor-pointer disabled:opacity-30 disabled:cursor-not-allowed">
+                        <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M15 19l-7-7 7-7" /></svg>
+                      </button>
+                      <button onClick={handleNextMove} disabled={analysisStack.length === 0} className="w-16 flex items-center justify-center py-4 text-sm font-bold text-white hover:bg-white/5 transition-colors border-r border-brand-border/50 cursor-pointer disabled:opacity-30 disabled:cursor-not-allowed">
+                        <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M9 5l7 7-7 7" /></svg>
+                      </button>
+                      <button onClick={exitGameToLobby} className="flex-1 flex items-center justify-center gap-2 py-4 text-sm font-bold text-brand-accent hover:bg-brand-accent/10 transition-colors cursor-pointer">
+                        <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1" /></svg>
+                        Exit to Lobby
+                      </button>
+                    </div>
+                  ) : (
+                    <div className="flex">
+                      <button onClick={handleDraw} disabled={matchState === 'gameover' || drawOffer === myColor} className={`flex-1 flex items-center justify-center gap-2 py-4 text-sm font-bold transition-colors border-r border-brand-border/50 cursor-pointer disabled:opacity-50 ${drawOffer && drawOffer !== myColor ? 'bg-green-500/20 text-green-400 hover:bg-green-500/30' : 'text-white hover:bg-white/5'}`}>
+                        <svg className="w-4 h-4 text-brand-accent" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M8 7h12m0 0l-4-4m4 4l-4 4m0 6H4m0 0l4 4m-4-4l4-4" /></svg>
+                        {drawOffer === myColor ? 'Draw Offered' : (drawOffer && drawOffer !== myColor ? 'Accept Draw' : 'Offer Draw')}
+                      </button>
+                      <button onClick={handleResign} disabled={matchState === 'gameover'} className="flex-1 flex items-center justify-center gap-2 py-4 text-sm font-bold text-white hover:bg-red-500/10 hover:text-red-400 transition-colors cursor-pointer disabled:opacity-50">
+                        <svg className="w-4 h-4 text-current" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M3 21v-4m0 0V5a2 2 0 012-2h6.5l1 1H21l-3 6 3 6h-8.5l-1-1H5a2 2 0 00-2 2zm9-13.5V9" /></svg>
+                        Resign
+                      </button>
+                    </div>
+                  )}
                 </motion.div>
               )}
             </AnimatePresence>
@@ -1019,10 +1283,10 @@ export default function OnlinePlay() {
         {activeModal === 'play' && (
           <motion.div className="fixed inset-0 z-50 flex items-center justify-center p-4" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}>
             <motion.div className="absolute inset-0 bg-black/70 backdrop-blur-sm" onClick={closeModal} />
-            <motion.div className="relative bg-brand-surface border border-brand-border rounded-2xl w-full max-w-[540px] overflow-hidden z-10" style={{ boxShadow: '0 24px 80px rgba(0,0,0,0.8), 0 0 40px rgba(212,175,55,0.12)' }} initial={{ scale: 0.88, y: 30, opacity: 0 }} animate={{ scale: 1, y: 0, opacity: 1 }} exit={{ scale: 0.88, y: 30, opacity: 0 }}>
+            <motion.div role="dialog" aria-modal="true" aria-labelledby="modal-title" className="relative bg-brand-surface border border-brand-border rounded-2xl w-full max-w-[540px] overflow-hidden z-10" style={{ boxShadow: '0 24px 80px rgba(0,0,0,0.8), 0 0 40px rgba(212,175,55,0.12)' }} initial={{ scale: 0.88, y: 30, opacity: 0 }} animate={{ scale: 1, y: 0, opacity: 1 }} exit={{ scale: 0.88, y: 30, opacity: 0 }}>
               <div className="flex border-b border-brand-border">
                 {(['create', 'join'] as const).map(tab => (
-                  <button key={tab} onClick={() => { setPlayTab(tab); setGeneratedCode(null); setRoomState('idle'); setNetworkError(null); }} className={`flex-1 flex items-center justify-center gap-2 py-4 text-lg font-bold transition-all cursor-pointer border-b-2 ${playTab === tab ? 'text-white bg-white/5 border-brand-accent' : 'text-text-secondary hover:text-white border-transparent'}`}>
+                  <button key={tab} disabled={roomState !== 'idle'} onClick={() => { setPlayTab(tab); setGeneratedCode(null); setRoomState('idle'); setNetworkError(null); }} className={`flex-1 flex items-center justify-center gap-2 py-4 text-lg font-bold transition-all border-b-2 ${playTab === tab ? 'text-white bg-white/5 border-brand-accent' : 'text-text-secondary border-transparent'} ${roomState === 'idle' ? 'hover:text-white cursor-pointer' : 'opacity-50 cursor-not-allowed'}`}>
                     {tab === 'create' ? 'Create Room' : 'Join Room'}
                   </button>
                 ))}
@@ -1033,7 +1297,7 @@ export default function OnlinePlay() {
                     <motion.div key="create-tab" initial={{ opacity: 0, x: -20 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: 20 }} transition={{ duration: 0.2 }}>
                       {roomState === 'idle' || roomState === 'creating' ? (
                         <>
-                          <h3 className="text-xl font-bold text-white text-center mb-2">Game Settings</h3>
+                          <h3 id="modal-title" className="text-xl font-bold text-white text-center mb-2">Game Settings</h3>
                           <p className="text-text-secondary text-sm text-center mb-6">Select your preferred settings before generating a room code.</p>
                           <div className="flex flex-col sm:flex-row gap-3 mb-5">
                             <div className="flex-1 flex rounded-xl overflow-hidden border border-brand-border">
@@ -1060,7 +1324,7 @@ export default function OnlinePlay() {
                         </>
                       ) : (
                         <>
-                          <h3 className="text-xl font-bold text-white text-center mb-2">Room Created</h3>
+                          <h3 id="modal-title" className="text-xl font-bold text-white text-center mb-2">Room Created</h3>
                           <p className="text-text-secondary text-sm text-center mb-6">Share this code with your opponent to join the match.</p>
                           <motion.div className="flex items-center justify-center mb-4" initial={{ scale: 0.8, opacity: 0 }} animate={{ scale: 1, opacity: 1 }}>
                             <div className="border-2 border-green-500 rounded-xl px-8 py-4 shadow-[0_0_20px_rgba(34,197,94,0.2)]">
@@ -1079,7 +1343,7 @@ export default function OnlinePlay() {
                     </motion.div>
                   ) : (
                     <motion.div key="join-tab" initial={{ opacity: 0, x: 20 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: -20 }} transition={{ duration: 0.2 }}>
-                      <h3 className="text-xl font-bold text-white text-center mb-2">Joining Game</h3>
+                      <h3 id="modal-title" className="text-xl font-bold text-white text-center mb-2">Joining Game</h3>
                       <p className="text-text-secondary text-sm text-center mb-6">Enter the 4-digit room code provided by your opponent.</p>
                       <div className="flex items-center justify-center gap-3 mb-4">
                         {[0, 1, 2, 3].map(i => (
@@ -1100,6 +1364,31 @@ export default function OnlinePlay() {
                     </motion.div>
                   )}
                 </AnimatePresence>
+              </div>
+            </motion.div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+
+      <AnimatePresence>
+        {confirmModalConfig && (
+          <motion.div className="fixed inset-0 z-[60] flex items-center justify-center p-4" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}>
+            <motion.div className="absolute inset-0 bg-black/80 backdrop-blur-md" onClick={confirmModalConfig.onCancel} />
+            <motion.div className="relative bg-brand-surface border border-brand-border/50 rounded-2xl w-full max-w-[400px] overflow-hidden z-10 p-6 sm:p-8 flex flex-col items-center text-center shadow-[0_24px_80px_rgba(0,0,0,0.9),0_0_40px_rgba(212,175,55,0.1)]" initial={{ scale: 0.9, y: 20, opacity: 0 }} animate={{ scale: 1, y: 0, opacity: 1 }} exit={{ scale: 0.9, y: 20, opacity: 0 }}>
+              <div className="w-16 h-16 rounded-full bg-red-500/10 flex items-center justify-center mb-5 border border-red-500/20">
+                <svg className="w-8 h-8 text-red-500" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" /></svg>
+              </div>
+              <h3 className="text-xl font-bold text-white mb-2">Leave Match?</h3>
+              <p className="text-text-secondary text-sm mb-8 leading-relaxed">
+                You are currently in an active match. Leaving will automatically forfeit the game. Are you sure you want to leave?
+              </p>
+              <div className="flex gap-3 w-full">
+                <button onClick={confirmModalConfig.onCancel} className="flex-1 py-3 rounded-lg border border-brand-border text-text-secondary hover:text-white hover:bg-white/5 font-bold text-sm transition-all cursor-pointer">
+                  STAY
+                </button>
+                <button onClick={confirmModalConfig.onConfirm} className="flex-1 py-3 rounded-lg bg-red-500 hover:bg-red-600 text-white font-bold text-sm transition-all shadow-lg shadow-red-500/20 cursor-pointer">
+                  LEAVE
+                </button>
               </div>
             </motion.div>
           </motion.div>
@@ -1134,7 +1423,42 @@ export default function OnlinePlay() {
                         <span className="flex-1 text-sm text-text-secondary">{item.date}</span>
                         
                         <div className="w-[150px] flex items-center justify-end gap-1.5 opacity-0 group-hover:opacity-100 transition-opacity">
-                           <button onClick={() => { setPgnText(item.pgn); handleImportGame(); }} className="px-2.5 py-1 rounded bg-brand-accent/20 text-brand-accent hover:bg-brand-accent hover:text-brand-navy text-xs font-bold transition-colors cursor-pointer" title="Load Game">
+                           <button onClick={() => {
+                              const pgn = item.pgn;
+                              setPgnText(pgn);
+                              // Use pgn directly to avoid stale state race condition
+                              try {
+                                const chess = new Chess();
+                                chess.loadPgn(pgn);
+                                gameRef.current = chess;
+                                const history = chess.history({ verbose: true }) as Move[];
+                                const newMoveLog: Array<{ w: string; b: string }> = [];
+                                pieceIdMapRef.current = {};
+                                const board = chess.board();
+                                for (let r = 0; r < 8; r++) {
+                                  for (let c = 0; c < 8; c++) {
+                                    const p = board[r][c];
+                                    if (p) pieceIdMapRef.current[p.square] = `${p.color}-${p.type}-${p.square}-${Math.random()}`;
+                                  }
+                                }
+                                for (let i = 0; i < history.length; i++) {
+                                  if (history[i].color === 'w') newMoveLog.push({ w: history[i].san, b: '' });
+                                  else if (newMoveLog.length > 0) newMoveLog[newMoveLog.length - 1].b = history[i].san;
+                                }
+                                setMoveLog(newMoveLog);
+                                setAnalysisStack([]);
+                                setLastMove(null);
+                                setMatchState('lobby');
+                                setLeftTab('moves');
+                                setImportExpanded(false);
+                                setPgnError(null);
+                                setIsImportedGame(true);
+                                setTriggerRender(prev => prev + 1);
+                                closeModal();
+                              } catch {
+                                // PGN corrupt — silently ignore
+                              }
+                           }} className="px-2.5 py-1 rounded bg-brand-accent/20 text-brand-accent hover:bg-brand-accent hover:text-brand-navy text-xs font-bold transition-colors cursor-pointer" title="Load Game">
                              LOAD
                            </button>
                            <button onClick={() => navigator.clipboard.writeText(item.pgn)} className="p-1.5 hover:bg-white/10 rounded text-text-secondary hover:text-white transition-colors cursor-pointer" title="Copy PGN">

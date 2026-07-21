@@ -4,6 +4,7 @@ import NavBar from './components/NavBar/NavBar';
 import Home from './pages/Home';
 import Puzzles from './pages/Puzzles';
 import OnlinePlay from './pages/OnlinePlay';
+import ErrorBoundary from './components/ErrorBoundary';
 
 /** Scrolls to top on every route change */
 function ScrollToTop() {
@@ -19,12 +20,14 @@ function App() {
     <Router>
       <ScrollToTop />
       <NavBar />
-      <Routes>
-        <Route path="/" element={<Home />} />
-        <Route path="/puzzles" element={<Puzzles />} />
-        <Route path="/online-play" element={<OnlinePlay />} />
-        <Route path="*" element={<Navigate to="/" replace />} />
-      </Routes>
+      <ErrorBoundary>
+        <Routes>
+          <Route path="/" element={<Home />} />
+          <Route path="/puzzles" element={<Puzzles />} />
+          <Route path="/online-play" element={<OnlinePlay />} />
+          <Route path="*" element={<Navigate to="/" replace />} />
+        </Routes>
+      </ErrorBoundary>
     </Router>
   );
 }
