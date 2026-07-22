@@ -657,7 +657,7 @@ export default function EnginePlayground() {
   return (
     <section
       id="engine-playground"
-      className="relative w-full bg-[#0a0a0a] py-16 px-4 sm:px-6"
+      className="relative w-full bg-[#0a0a0a] py-10 sm:py-14 lg:py-16 px-3 sm:px-4 lg:px-6"
       aria-label="Interactive chess engine playground"
     >
       {/* Ambient glow */}
@@ -674,13 +674,67 @@ export default function EnginePlayground() {
           transition={{ duration: 0.75, ease: [0.22, 1, 0.36, 1] as [number, number, number, number] }}
         >
           {/* ── LEFT: Eval bar + Board ───────────── */}
-          <div className="flex flex-col w-full lg:w-[532px] shrink-0 border-b lg:border-b-0 lg:border-r border-[#d4af37]/20 bg-transparent p-4 lg:p-5 gap-4">
-            {/* Top row: Eval Bar + Board */}
-            <div className="flex flex-row w-full gap-3">
-              {/* Eval bar */}
-              <div className="flex flex-col items-center justify-center w-8 shrink-0 bg-black/40 border border-[#d4af37]/20 rounded-xl py-3 px-2">
-                <div className="relative w-full flex-1 bg-[#1a1a1a] rounded-full overflow-hidden border border-[#333] flex flex-col justify-end">
-                  {/* White portion fills from bottom */}
+          <div className="flex flex-col w-full lg:w-[532px] shrink-0 border-b lg:border-b-0 lg:border-r border-[#d4af37]/20 bg-transparent p-3 sm:p-4 lg:p-5 gap-3">
+            {/* MOBILE: Turn indicator — order-1 (top) on mobile, order-3 on lg (bottom) */}
+            <div className="lg:hidden flex items-center px-3 py-2.5 bg-black/40 border border-[#d4af37]/20 rounded-xl order-1">
+              {/* Score */}
+              <div className="flex justify-center shrink-0 border-r border-[#d4af37]/20 mr-3 pr-3">
+                <span className="text-[0.65rem] text-text-muted font-mono font-semibold">{evalLabel}</span>
+              </div>
+              {/* Turn indicator */}
+              <div className="flex items-center gap-2 flex-1">
+                <motion.span
+                  className={`w-3 h-3 rounded-full border ${gameRef.current.turn() === 'w' ? 'bg-white border-gray-300 shadow-[0_0_8px_rgba(255,255,255,0.6)]' : 'bg-gray-900 border-gray-500 shadow-[0_0_8px_rgba(0,0,0,0.8)]'}`}
+                  animate={{ scale: [1, 1.2, 1] }}
+                  transition={{ duration: 1.2, repeat: Infinity, ease: 'easeInOut' }}
+                  key={tick}
+                />
+                <div className="overflow-hidden h-5 flex items-center">
+                  <AnimatePresence mode="wait">
+                    <motion.span
+                      key={isAIThinking ? 'ai' : gameRef.current.turn()}
+                      initial={{ y: 15, opacity: 0 }}
+                      animate={{ y: 0, opacity: 1 }}
+                      exit={{ y: -15, opacity: 0 }}
+                      transition={{ duration: 0.3, ease: 'backOut' }}
+                      className="block text-xs text-text-secondary font-medium tracking-wide"
+                    >
+                      {isAIThinking
+                        ? 'AI thinking...'
+                        : gameRef.current.turn() === 'w'
+                          ? "White's Turn"
+                          : "Black's Turn"}
+                    </motion.span>
+                  </AnimatePresence>
+                </div>
+                {isAIThinking && (
+                  <div className="flex gap-0.5 ml-1">
+                    {[0, 1, 2].map(i => (
+                      <motion.div key={i} className="w-1 h-3 rounded-full bg-brand-accent"
+                        animate={{ scaleY: [0.6, 1.3, 0.6] }}
+                        transition={{ duration: 0.8, delay: i * 0.15, repeat: Infinity, ease: 'easeInOut' }}
+                      />
+                    ))}
+                  </div>
+                )}
+              </div>
+            </div>
+
+            {/* Board + Eval bar — side by side on lg, stacked on mobile */}
+            <div className="flex flex-col lg:flex-row w-full gap-3 order-2">
+              {/* Eval bar: horizontal strip on mobile, vertical column on lg */}
+              <div className="flex lg:flex-col items-center justify-center w-full lg:w-8 h-5 lg:h-auto shrink-0 bg-black/40 border border-[#d4af37]/20 rounded-xl px-2 py-1 lg:py-3">
+                {/* Mobile: horizontal bar — white fills from left */}
+                <div className="w-full h-full bg-[#1a1a1a] rounded-full overflow-hidden border border-[#333] flex flex-row lg:hidden">
+                  <motion.div
+                    className="h-full bg-white/90 rounded-full"
+                    style={{ width: `${whitePercent}%` }}
+                    animate={{ width: `${whitePercent}%` }}
+                    transition={{ type: 'spring', stiffness: 120, damping: 20 }}
+                  />
+                </div>
+                {/* Desktop: vertical bar — white fills from bottom */}
+                <div className="hidden lg:flex w-full flex-1 bg-[#1a1a1a] rounded-full overflow-hidden border border-[#333] flex-col justify-end">
                   <motion.div
                     className="w-full bg-white/90"
                     style={{ height: `${whitePercent}%` }}
@@ -853,27 +907,22 @@ export default function EnginePlayground() {
                 </div>
               </div>
 
-            {/* Bottom row: Score + Turn Indicator */}
-            <div className="flex items-center px-4 py-3 bg-black/40 border border-[#d4af37]/20 rounded-xl">
-              {/* Score indicator (aligned with eval bar) */}
+            {/* DESKTOP: Turn indicator at bottom (order-3) — hidden on mobile since we have order-1 above */}
+            <div className="hidden lg:flex items-center px-4 py-3 bg-black/40 border border-[#d4af37]/20 rounded-xl order-3">
               <div className="w-8 flex justify-center shrink-0 border-r border-[#d4af37]/20 mr-3 pr-1">
-                <span className="text-[0.65rem] text-text-muted font-mono font-semibold">
-                  {evalLabel}
-                </span>
+                <span className="text-[0.65rem] text-text-muted font-mono font-semibold">{evalLabel}</span>
               </div>
-              
-              {/* Turn indicator */}
               <div className="flex items-center gap-2 flex-1">
                 <motion.span
                   className={`w-3 h-3 rounded-full border ${gameRef.current.turn() === 'w' ? 'bg-white border-gray-300 shadow-[0_0_8px_rgba(255,255,255,0.6)]' : 'bg-gray-900 border-gray-500 shadow-[0_0_8px_rgba(0,0,0,0.8)]'}`}
                   animate={{ scale: [1, 1.2, 1] }}
                   transition={{ duration: 1.2, repeat: Infinity, ease: 'easeInOut' }}
-                  key={tick}
+                  key={`desk-${tick}`}
                 />
                 <div className="overflow-hidden h-5 flex items-center">
                   <AnimatePresence mode="wait">
                     <motion.span
-                      key={isAIThinking ? 'ai' : gameRef.current.turn()}
+                      key={isAIThinking ? 'ai-d' : `${gameRef.current.turn()}-d`}
                       initial={{ y: 15, opacity: 0 }}
                       animate={{ y: 0, opacity: 1 }}
                       exit={{ y: -15, opacity: 0 }}
@@ -901,9 +950,10 @@ export default function EnginePlayground() {
               </div>
             </div>
           </div>
+
         {/* ── RIGHT: Controls ──────────────────── */}
         <motion.div 
-          className="flex-1 flex flex-col p-4 lg:p-5 gap-3 lg:gap-4 justify-center relative min-w-0 w-full lg:min-w-[320px]"
+          className="order-3 flex-1 flex flex-col p-2 sm:p-4 lg:p-5 gap-2 sm:gap-3 lg:gap-4 justify-center relative min-w-0 w-full lg:min-w-[320px]"
           initial={{ opacity: 0, x: 20 }}
           whileInView={{ opacity: 1, x: 0 }}
           viewport={{ once: true }}
@@ -1174,7 +1224,7 @@ export default function EnginePlayground() {
                   <div
                     ref={moveLogRef}
                     className="flex-1 rounded-xl border border-[#d4af37]/30 overflow-y-auto font-mono text-sm"
-                    style={{ background: 'rgba(0,0,0,0.4)', minHeight: 140, maxHeight: 260, padding: '12px' }}
+                    style={{ background: 'rgba(0,0,0,0.4)', minHeight: 100, maxHeight: 180, padding: '12px' }}
                     role="log"
                     aria-label="Move history"
                     aria-live="polite"

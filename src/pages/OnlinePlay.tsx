@@ -845,7 +845,7 @@ export default function OnlinePlay() {
 
   return (
     <div className="min-h-screen bg-brand-navy flex flex-col text-white font-sans overflow-x-hidden">
-      <header className="relative w-full h-20 flex items-center justify-between px-6 lg:px-12 border-b border-brand-border/30 z-10 bg-brand-surface/80 backdrop-blur-md shrink-0">
+      <header className="relative w-full h-16 sm:h-20 flex items-center justify-between px-4 sm:px-6 lg:px-12 border-b border-brand-border/30 z-10 bg-brand-surface/80 backdrop-blur-md shrink-0">
         <a href="/" onClick={handleBackToHome} className="flex items-center gap-2 text-text-secondary hover:text-white transition-colors cursor-pointer group">
           <svg className="w-5 h-5 group-hover:-translate-x-1 transition-transform" fill="none" viewBox="0 0 24 24" stroke="currentColor">
             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 19l-7-7m0 0l7-7m-7 7h18" />
@@ -853,8 +853,8 @@ export default function OnlinePlay() {
           <span className="text-sm font-semibold tracking-wide">Back to Home</span>
         </a>
         <div className="absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 flex flex-col items-center">
-          <img src={Icon} alt="Logo" className="h-10 w-auto mb-1 opacity-90" />
-          <span className="text-xl font-black tracking-widest text-white leading-none">DACHESS</span>
+          <img src={Icon} alt="Logo" className="h-8 sm:h-10 w-auto mb-0.5 sm:mb-1 opacity-90" />
+          <span className="text-lg sm:text-xl font-black tracking-widest text-white leading-none">DACHESS</span>
         </div>
 
         {/* Sound Toggle */}
@@ -870,19 +870,19 @@ export default function OnlinePlay() {
       </header>
 
       <main className="flex-1 flex flex-col">
-        <div className="flex flex-col lg:flex-row w-full max-w-[1300px] mx-auto px-4 py-6 lg:py-10 gap-5 lg:gap-6 flex-1 items-start">
-          <motion.div className="w-full lg:w-[300px] shrink-0 flex flex-col order-2 lg:order-1" initial={{ opacity: 0, x: -20 }} animate={{ opacity: 1, x: 0 }} transition={{ duration: 0.5 }}>
+        <div className="flex flex-col lg:flex-row w-full max-w-[1300px] mx-auto px-3 sm:px-4 py-4 sm:py-6 lg:py-10 gap-4 lg:gap-6 flex-1 items-start">
+          <motion.div className="w-full lg:w-[300px] shrink-0 flex flex-col order-3 lg:order-1" initial={{ opacity: 0, x: -20 }} animate={{ opacity: 1, x: 0 }} transition={{ duration: 0.5 }}>
             <AnimatePresence mode="wait">
               {matchState === 'lobby' ? (
-                <motion.div key="lobby-card" initial={{ opacity: 0, scale: 0.95 }} animate={{ opacity: 1, scale: 1 }} exit={{ opacity: 0, scale: 0.95 }} className="bg-brand-surface rounded-t-2xl p-5 border border-brand-border/30 border-b-0">
-                  <div className="flex items-start gap-3 mb-4">
-                    <img src={KingIcon} alt="Chess" className="w-12 h-12 rounded-lg object-cover" />
+                <motion.div key="lobby-card" initial={{ opacity: 0, scale: 0.95 }} animate={{ opacity: 1, scale: 1 }} exit={{ opacity: 0, scale: 0.95 }} className="bg-brand-surface rounded-t-2xl p-4 sm:p-5 border border-brand-border/30 border-b-0">
+                  <div className="flex items-center gap-3 mb-3">
+                    <img src={KingIcon} alt="Chess" className="w-10 h-10 sm:w-12 sm:h-12 rounded-lg object-cover" />
                     <div>
-                      <h2 className="text-lg font-bold text-white">Welcome to DaChess</h2>
+                      <h2 className="text-base sm:text-lg font-bold text-white">Welcome to DaChess</h2>
                       <p className="text-sm text-green-400 font-medium">Get ready, and have fun!</p>
                     </div>
                   </div>
-                  <p className="text-xl font-black text-white leading-tight mb-5">Gear up,<br />Let&apos;s start a game</p>
+                  <p className="text-lg sm:text-xl font-black text-white leading-tight mb-4">Gear up,<br />Let&apos;s start a game</p>
                   <div className="flex items-center justify-between">
                     <div className="flex-1 text-center">
                       <p className="text-xs font-semibold text-text-secondary mb-1 uppercase tracking-wider">You</p>
@@ -942,7 +942,7 @@ export default function OnlinePlay() {
               ))}
             </div>
 
-            <div className="bg-brand-surface border-x border-brand-border/30 flex-1 min-h-[180px] max-h-[300px] overflow-y-auto flex flex-col relative z-10 custom-scrollbar">
+            <div className="bg-brand-surface border-x border-brand-border/30 flex-1 min-h-[160px] max-h-[220px] sm:max-h-[280px] lg:max-h-[300px] overflow-y-auto flex flex-col relative z-10 custom-scrollbar">
               <AnimatePresence mode="wait">
                 {leftTab === 'chat' ? (
                   <motion.div key="chat-content" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className="flex-1 flex flex-col p-4 gap-2">
@@ -1002,7 +1002,7 @@ export default function OnlinePlay() {
             </div>
           </motion.div>
 
-          <div className="flex-1 flex flex-col items-center order-1 lg:order-2 w-full min-w-0 relative">
+          <div className="flex-1 flex flex-col items-center order-2 lg:order-2 w-full min-w-0 relative">
 
             {/* Game Over Modal Overlay inside the board area */}
             <AnimatePresence>
@@ -1011,7 +1011,7 @@ export default function OnlinePlay() {
                   initial={{ opacity: 0, scale: 0.9, y: 20 }}
                   animate={{ opacity: 1, scale: 1, y: 0 }}
                   exit={{ opacity: 0, scale: 0.9 }}
-                  className="absolute z-40 top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 bg-brand-surface border border-brand-border p-6 rounded-2xl shadow-2xl flex flex-col items-center text-center min-w-[320px]"
+                  className="absolute z-40 top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 bg-brand-surface border border-brand-border p-5 sm:p-6 rounded-2xl shadow-2xl flex flex-col items-center text-center w-[90%] sm:w-auto sm:min-w-[320px]"
                 >
                   <h2 className="text-3xl font-black text-white mb-1">
                     {gameOverDetails.winner === 'draw' ? 'Draw!' : (gameOverDetails.winner === myColor ? 'You Won!' : 'You Lost!')}
@@ -1138,20 +1138,20 @@ export default function OnlinePlay() {
             {/* Contextual Import Controls */}
             <AnimatePresence>
               {matchState === 'lobby' && isImportedGame && (
-                <motion.div initial={{ opacity: 0, y: -10 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -10 }} className="w-full max-w-[560px] mt-4 flex justify-between gap-3">
+                <motion.div initial={{ opacity: 0, y: -10 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -10 }} className="w-full max-w-[560px] mt-3 sm:mt-4 flex flex-wrap justify-between gap-2 sm:gap-3">
                   <div className="flex bg-brand-surface border border-brand-border/50 rounded-lg overflow-hidden">
-                      <button onClick={handlePrevMove} disabled={gameRef.current.history().length === 0} className="w-14 flex items-center justify-center text-white hover:bg-white/5 transition-colors border-r border-brand-border/50 cursor-pointer disabled:opacity-30 disabled:cursor-not-allowed">
+                      <button onClick={handlePrevMove} disabled={gameRef.current.history().length === 0} className="w-12 sm:w-14 flex items-center justify-center text-white hover:bg-white/5 transition-colors border-r border-brand-border/50 cursor-pointer disabled:opacity-30 disabled:cursor-not-allowed">
                         <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M15 19l-7-7 7-7" /></svg>
                       </button>
-                      <button onClick={handleNextMove} disabled={analysisStack.length === 0} className="w-14 flex items-center justify-center text-white hover:bg-white/5 transition-colors cursor-pointer disabled:opacity-30 disabled:cursor-not-allowed">
+                      <button onClick={handleNextMove} disabled={analysisStack.length === 0} className="w-12 sm:w-14 flex items-center justify-center text-white hover:bg-white/5 transition-colors cursor-pointer disabled:opacity-30 disabled:cursor-not-allowed">
                         <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M9 5l7 7-7 7" /></svg>
                       </button>
                   </div>
 
-                  <div className="flex justify-end gap-3 flex-1">
-                    <button onClick={() => setBoardFlipped(!boardFlipped)} className="px-5 py-2.5 rounded-lg bg-brand-surface border border-brand-border/50 text-white font-bold text-sm hover:bg-brand-surface-light transition-colors flex items-center gap-2">
+                  <div className="flex justify-end gap-2 flex-1">
+                    <button onClick={() => setBoardFlipped(!boardFlipped)} className="px-3 sm:px-5 py-2 sm:py-2.5 rounded-lg bg-brand-surface border border-brand-border/50 text-white font-bold text-sm hover:bg-brand-surface-light transition-colors flex items-center gap-1.5 sm:gap-2">
                       <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" /></svg>
-                      Flip Board
+                      <span className="hidden sm:inline">Flip Board</span>
                     </button>
                     <button onClick={() => {
                       gameRef.current.reset();
@@ -1160,9 +1160,9 @@ export default function OnlinePlay() {
                       setTriggerRender(prev => prev + 1);
                       setIsImportedGame(false);
                       setBoardFlipped(false);
-                    }} className="px-5 py-2.5 rounded-lg bg-red-500/10 border border-red-500/30 text-red-400 font-bold text-sm hover:bg-red-500/20 transition-colors flex items-center gap-2">
+                    }} className="px-3 sm:px-5 py-2 sm:py-2.5 rounded-lg bg-red-500/10 border border-red-500/30 text-red-400 font-bold text-sm hover:bg-red-500/20 transition-colors flex items-center gap-1.5 sm:gap-2">
                       <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" /></svg>
-                      Reset Board
+                      <span className="hidden sm:inline">Reset Board</span>
                     </button>
                   </div>
                 </motion.div>
@@ -1170,38 +1170,41 @@ export default function OnlinePlay() {
             </AnimatePresence>
           </div>
 
-          <motion.div className="w-full lg:w-[280px] shrink-0 flex flex-col gap-4 order-3" initial={{ opacity: 0, x: 20 }} animate={{ opacity: 1, x: 0 }} transition={{ duration: 0.5, delay: 0.1 }}>
+          <motion.div className="w-full lg:w-[280px] shrink-0 flex flex-col gap-4 order-1 lg:order-3" initial={{ opacity: 0, x: 20 }} animate={{ opacity: 1, x: 0 }} transition={{ duration: 0.5, delay: 0.1 }}>
             <AnimatePresence mode="wait">
               {matchState === 'lobby' ? (
-                <motion.div key="lobby-actions" initial={{ opacity: 0, x: 20 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: 20 }} className="flex flex-col gap-4">
-                  <button onClick={openPlayModal} className="w-full flex items-center justify-center gap-3 py-5 rounded-xl bg-brand-surface border border-brand-border/50 text-white text-xl font-bold transition-all cursor-pointer hover:border-brand-accent/60 hover:bg-brand-surface-light shadow-lg group">
-                    <svg className="w-6 h-6 text-brand-accent group-hover:scale-110 transition-transform" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M12 4v16m8-8H4" /></svg>
-                    Online Play
-                  </button>
-                  <div className="flex flex-col shadow-lg">
-                    <button onClick={() => setImportExpanded(prev => !prev)} className={`w-full flex items-center justify-center gap-3 py-5 bg-brand-surface border border-brand-border/50 text-white text-xl font-bold transition-all cursor-pointer hover:border-brand-accent/60 hover:bg-brand-surface-light group ${importExpanded ? 'rounded-t-xl border-b-0' : 'rounded-xl'}`}>
-                      <svg className="w-6 h-6 text-brand-accent group-hover:scale-110 transition-transform" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" /></svg>
-                      Import Game
+                <motion.div key="lobby-actions" initial={{ opacity: 0, x: 20 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: 20 }} className="flex flex-col gap-3">
+                  {/* On mobile these 3 buttons are arranged in a row; on lg screens stacked vertically */}
+                  <div className="grid grid-cols-3 lg:grid-cols-1 gap-3">
+                    <button onClick={openPlayModal} className="flex flex-col lg:flex-row items-center justify-center gap-2 lg:gap-3 py-4 lg:py-5 rounded-xl bg-brand-surface border border-brand-border/50 text-white text-sm lg:text-xl font-bold transition-all cursor-pointer hover:border-brand-accent/60 hover:bg-brand-surface-light shadow-lg group">
+                      <svg className="w-5 h-5 lg:w-6 lg:h-6 text-brand-accent group-hover:scale-110 transition-transform" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M12 4v16m8-8H4" /></svg>
+                      <span>Online Play</span>
                     </button>
-                    <AnimatePresence>
-                      {importExpanded && (
-                        <motion.div initial={{ height: 0, opacity: 0 }} animate={{ height: 'auto', opacity: 1 }} exit={{ height: 0, opacity: 0 }} className="overflow-hidden">
-                          <div className="bg-brand-surface border border-brand-border/50 border-t-0 rounded-b-xl p-5">
-                            <textarea value={pgnText} onChange={e => { setPgnText(e.target.value); setPgnError(null); }} placeholder="Paste PGN here..." className={`w-full h-24 rounded-lg bg-brand-navy border ${pgnError ? 'border-red-500' : 'border-brand-border'} p-3 text-sm text-white placeholder:text-text-muted resize-none custom-scrollbar outline-none focus:border-brand-accent/60`} />
-                            {pgnError && <p className="text-red-400 text-xs mt-1">{pgnError}</p>}
-                            <div className="flex justify-end gap-2 mt-3">
-                              <button onClick={() => { setImportExpanded(false); setPgnError(null); setPgnText(''); }} className="px-5 py-2 rounded-lg border border-brand-border text-text-secondary hover:text-white text-sm font-bold cursor-pointer">Cancel</button>
-                              <button onClick={handleImportGame} disabled={!pgnText.trim()} className="px-5 py-2 rounded-lg bg-brand-accent text-brand-navy text-sm font-bold cursor-pointer hover:bg-brand-accent-light disabled:opacity-50">Import</button>
-                            </div>
-                          </div>
-                        </motion.div>
-                      )}
-                    </AnimatePresence>
+                    <button onClick={() => setImportExpanded(prev => !prev)} className={`flex flex-col lg:flex-row items-center justify-center gap-2 lg:gap-3 py-4 lg:py-5 bg-brand-surface border border-brand-border/50 text-white text-sm lg:text-xl font-bold transition-all cursor-pointer hover:border-brand-accent/60 hover:bg-brand-surface-light group rounded-xl`}>
+                      <svg className="w-5 h-5 lg:w-6 lg:h-6 text-brand-accent group-hover:scale-110 transition-transform" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" /></svg>
+                      <span>Import Game</span>
+                    </button>
+                    <button onClick={() => setActiveModal('history')} className="flex flex-col lg:flex-row items-center justify-center gap-2 lg:gap-3 py-4 lg:py-5 rounded-xl bg-brand-surface border border-brand-border/50 text-white text-sm lg:text-xl font-bold transition-all cursor-pointer hover:border-brand-accent/60 hover:bg-brand-surface-light shadow-lg group">
+                      <svg className="w-5 h-5 lg:w-6 lg:h-6 text-brand-accent group-hover:scale-110 transition-transform" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><circle cx="12" cy="12" r="10" /><path strokeLinecap="round" strokeLinejoin="round" d="M12 6v6l4 2" /></svg>
+                      <span>Match History</span>
+                    </button>
                   </div>
-                  <button onClick={() => setActiveModal('history')} className="w-full flex items-center justify-center gap-3 py-5 rounded-xl bg-brand-surface border border-brand-border/50 text-white text-xl font-bold transition-all cursor-pointer hover:border-brand-accent/60 hover:bg-brand-surface-light shadow-lg group">
-                    <svg className="w-6 h-6 text-brand-accent group-hover:scale-110 transition-transform" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><circle cx="12" cy="12" r="10" /><path strokeLinecap="round" strokeLinejoin="round" d="M12 6v6l4 2" /></svg>
-                    Match History
-                  </button>
+                  {/* Import PGN expanded panel - shown below buttons */}
+                  <AnimatePresence>
+                    {importExpanded && (
+                      <motion.div initial={{ height: 0, opacity: 0 }} animate={{ height: 'auto', opacity: 1 }} exit={{ height: 0, opacity: 0 }} className="overflow-hidden">
+                        <div className="bg-brand-surface border border-brand-border/50 rounded-xl p-4">
+                          <p className="text-xs font-semibold text-text-secondary uppercase tracking-wider mb-2">Paste PGN</p>
+                          <textarea value={pgnText} onChange={e => { setPgnText(e.target.value); setPgnError(null); }} placeholder="Paste PGN here..." className={`w-full h-24 rounded-lg bg-brand-navy border ${pgnError ? 'border-red-500' : 'border-brand-border'} p-3 text-sm text-white placeholder:text-text-muted resize-none custom-scrollbar outline-none focus:border-brand-accent/60`} />
+                          {pgnError && <p className="text-red-400 text-xs mt-1">{pgnError}</p>}
+                          <div className="flex justify-end gap-2 mt-3">
+                            <button onClick={() => { setImportExpanded(false); setPgnError(null); setPgnText(''); }} className="px-5 py-2 rounded-lg border border-brand-border text-text-secondary hover:text-white text-sm font-bold cursor-pointer">Cancel</button>
+                            <button onClick={handleImportGame} disabled={!pgnText.trim()} className="px-5 py-2 rounded-lg bg-brand-accent text-brand-navy text-sm font-bold cursor-pointer hover:bg-brand-accent-light disabled:opacity-50">Import</button>
+                          </div>
+                        </div>
+                      </motion.div>
+                    )}
+                  </AnimatePresence>
                 </motion.div>
               ) : (
                 <motion.div key="match-panel" initial={{ opacity: 0, x: 20 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: 20 }} className="w-full bg-brand-surface rounded-xl border border-brand-border/50 overflow-hidden shadow-lg flex flex-col">
@@ -1405,9 +1408,9 @@ export default function OnlinePlay() {
               <div className="border border-brand-border rounded-xl overflow-hidden mb-6 shadow-inner">
                 <div className="flex items-center bg-brand-surface-light border-b border-brand-border/50 px-4">
                   <span className="py-3 flex-[1.5] text-xs font-bold text-text-secondary uppercase tracking-wider">Result</span>
-                  <span className="py-3 flex-1 text-xs font-bold text-text-secondary uppercase tracking-wider">Played As</span>
-                  <span className="py-3 flex-1 text-xs font-bold text-text-secondary uppercase tracking-wider">Date</span>
-                  <span className="py-3 w-[150px] text-xs font-bold text-text-secondary uppercase tracking-wider text-right">Actions</span>
+                  <span className="py-3 flex-1 text-xs font-bold text-text-secondary uppercase tracking-wider hidden sm:block">Played As</span>
+                  <span className="py-3 flex-1 text-xs font-bold text-text-secondary uppercase tracking-wider hidden sm:block">Date</span>
+                  <span className="py-3 sm:w-[150px] text-xs font-bold text-text-secondary uppercase tracking-wider sm:text-right">Actions</span>
                 </div>
                 <div className="max-h-[350px] overflow-y-auto custom-scrollbar">
                   {matchHistory.length === 0 ? (
@@ -1417,12 +1420,16 @@ export default function OnlinePlay() {
                     </div>
                   ) : (
                     matchHistory.map((item) => (
-                      <div key={item.id} className="flex items-center px-4 py-3 border-b border-brand-border/20 hover:bg-white/5 transition-colors group">
-                        <span className={`flex-[1.5] text-sm font-bold ${item.result === 'Won' ? 'text-green-400' : item.result === 'Lost' ? 'text-red-400' : 'text-gray-400'}`}>{item.result}</span>
-                        <span className="flex-1 text-sm text-white">{item.playedAs}</span>
-                        <span className="flex-1 text-sm text-text-secondary">{item.date}</span>
-                        
-                        <div className="w-[150px] flex items-center justify-end gap-1.5 opacity-0 group-hover:opacity-100 transition-opacity">
+                      <div key={item.id} className="flex flex-col sm:flex-row sm:items-center px-4 py-3 border-b border-brand-border/20 hover:bg-white/5 transition-colors gap-2 sm:gap-0">
+                        {/* Info row */}
+                        <div className="flex items-center gap-2 sm:contents">
+                          <span className={`flex-[1.5] text-sm font-bold ${item.result === 'Won' ? 'text-green-400' : item.result === 'Lost' ? 'text-red-400' : 'text-gray-400'}`}>{item.result}</span>
+                          <span className="flex-1 text-sm text-white hidden sm:block">{item.playedAs}</span>
+                          <span className="flex-1 text-sm text-text-secondary hidden sm:block">{item.date}</span>
+                          <span className="text-xs text-text-secondary sm:hidden">{item.playedAs} · {item.date}</span>
+                        </div>
+                        {/* Action buttons — always visible */}
+                        <div className="flex items-center gap-1.5 sm:w-[150px] sm:justify-end">
                            <button onClick={() => {
                               const pgn = item.pgn;
                               setPgnText(pgn);
@@ -1484,6 +1491,7 @@ export default function OnlinePlay() {
                            </button>
                         </div>
                       </div>
+
                     ))
                   )}
                 </div>
